@@ -25,8 +25,8 @@ SCRIPT_TAG='<script src="/RandomReel/inject.js" defer></script>'
 INDEX_FILE="$PROJECT_DIR/jellyfin-data/index.html"
 
 if [[ ! -f "$INDEX_FILE" ]] || ! grep -qF "$SCRIPT_TAG" "$INDEX_FILE"; then
-  echo "==> Extracting index.html from jellyfin/jellyfin:10.9.11 image..."
-  docker run --rm --entrypoint=cat "jellyfin/jellyfin:10.9.11" \
+  echo "==> Extracting index.html from jellyfin/jellyfin:10.11.10 image..."
+  docker run --rm --entrypoint=cat "jellyfin/jellyfin:10.11.10" \
     /jellyfin/jellyfin-web/index.html \
     > "$INDEX_FILE"
   echo "==> Injecting Random Reel script tag..."
@@ -48,7 +48,7 @@ echo "==> Building $CONFIGURATION inside dotnet SDK container..."
 docker run --rm \
   -v "$PROJECT_DIR":/src \
   -w /src \
-  mcr.microsoft.com/dotnet/sdk:8.0 \
+  mcr.microsoft.com/dotnet/sdk:9.0 \
   dotnet build Jellyfin.Plugin.RandomReel/Jellyfin.Plugin.RandomReel.csproj \
     -c "$CONFIGURATION" --nologo -v quiet
 

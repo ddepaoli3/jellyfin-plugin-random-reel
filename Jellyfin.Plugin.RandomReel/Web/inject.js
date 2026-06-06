@@ -74,9 +74,18 @@
     function tryInject(sheet) {
         try {
             var allItems = sheet.querySelectorAll('.listItem');
+            console.log('[RandomReel] Action sheet detected, items found:', allItems.length);
+            for (var d = 0; d < allItems.length; d++) {
+                console.log('[RandomReel] Item[' + d + ']:', JSON.stringify((allItems[d].textContent || '').trim().substring(0, 60)));
+            }
+
             var shuffleItem = null;
             for (var i = 0; i < allItems.length; i++) {
-                if ((allItems[i].textContent || '').trim().indexOf('Shuffle') === 0) {
+                var txt = (allItems[i].textContent || '').trim();
+                // Match any language: look for shuffle icon or common translations
+                var icon = allItems[i].querySelector('.material-icons, .listItemIcon');
+                var iconText = icon ? (icon.textContent || '').trim() : '';
+                if (iconText === 'shuffle' || txt.indexOf('Shuffle') === 0 || txt.indexOf('Casuale') === 0 || txt.indexOf('Mescola') === 0) {
                     shuffleItem = allItems[i]; break;
                 }
             }
@@ -220,59 +229,72 @@
         hookNextButton(folderId);
     }
 
-    // ── 9. Next-button hook ───────────────────────────────────────────────────────
-    // We find the player's Next button once and attach a capturing listener.
-    // The listener is removed when the reel ends (stopMonitor → unhookNextButton).
-    var _nextBtn = null;
-    var _nextHandler = null;
+    // ── 9. Next-button overlay ────────────────────────────────────────────────────
+    // Jellyfin 10.11 removed the .btnNextTrack from the video player.
+    // Instead we inject a floating "Next" button into the player overlay.
+    var _nextOverlay = null;
     var _nextObserver = null;
-
-    function onNextClick(e, folderId) {
-        if (!rrSession) return;
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        var capturedItemId   = rrSession.itemId;
-        var capturedFolderId = folderId;
-        stopMonitor();
-        cleanupWatchHistory(capturedItemId);
-        console.log('[RandomReel] Next clicked — launching next clip.');
-        setTimeout(function () { launchRandomReel(capturedFolderId); }, 200);
-    }
 
     function unhookNextButton() {
         if (_nextObserver) { _nextObserver.disconnect(); _nextObserver = null; }
-        if (_nextBtn && _nextHandler) {
-            _nextBtn.removeEventListener('click', _nextHandler, true);
-            _nextBtn._rrHooked = false;
+        if (_nextOverlay && _nextOverlay.parentNode) {
+            _nextOverlay.parentNode.removeChild(_nextOverlay);
         }
-        _nextBtn = null;
-        _nextHandler = null;
+        _nextOverlay = null;
     }
 
     function hookNextButton(folderId) {
-        unhookNextButton(); // clear any stale hook
+        unhookNextButton();
 
-        function tryHook() {
-            // Jellyfin uses btnNextTrack in the full video player
-            var btn = document.querySelector('.btnNextTrack');
-            if (btn && !btn._rrHooked) {
-                _nextBtn = btn;
-                _nextHandler = function (e) { onNextClick(e, folderId); };
-                btn.addEventListener('click', _nextHandler, true);
-                btn._rrHooked = true;
-                console.log('[RandomReel] Next button hooked.');
-                if (_nextObserver) { _nextObserver.disconnect(); _nextObserver = null; }
-            }
+        function injectOverlay() {
+            if (document.querySelector('.rr-next-overlay')) return true; // already injected
+            var playerContainer = document.body;
+            if (!playerContainer) return false;
+
+            var btn = document.createElement('button');
+            btn.className = 'rr-next-overlay';
+            btn.textContent = '⏭ Next';
+            btn.style.cssText = [
+                'position:fixed',
+                'bottom:90px',
+                'right:28px',
+                'z-index:2147483647',
+                'background:rgba(0,0,0,0.75)',
+                'color:#fff',
+                'border:2px solid rgba(255,255,255,0.8)',
+                'border-radius:8px',
+                'padding:12px 22px',
+                'font-size:16px',
+                'font-weight:bold',
+                'cursor:pointer',
+                'pointer-events:all',
+                'letter-spacing:0.5px',
+                'box-shadow:0 2px 12px rgba(0,0,0,0.5)'
+            ].join(';');
+
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!rrSession) return;
+                var capturedItemId   = rrSession.itemId;
+                var capturedFolderId = folderId;
+                stopMonitor();
+                cleanupWatchHistory(capturedItemId);
+                console.log('[RandomReel] Next clicked — launching next clip.');
+                setTimeout(function () { launchRandomReel(capturedFolderId); }, 200);
+            });
+
+            playerContainer.appendChild(btn);
+            _nextOverlay = btn;
+            console.log('[RandomReel] Next overlay button injected.');
+            if (_nextObserver) { _nextObserver.disconnect(); _nextObserver = null; }
+            return true;
         }
 
-        // Try immediately (player might already be open)
-        tryHook();
-
-        // If not found yet, watch for the player to appear — disconnect once hooked
-        if (!_nextBtn) {
+        if (!injectOverlay()) {
             _nextObserver = new MutationObserver(function () {
                 if (!rrSession) { _nextObserver.disconnect(); _nextObserver = null; return; }
-                tryHook();
+                if (injectOverlay()) { _nextObserver.disconnect(); _nextObserver = null; }
             });
             _nextObserver.observe(document.documentElement, { childList: true, subtree: true });
         }
