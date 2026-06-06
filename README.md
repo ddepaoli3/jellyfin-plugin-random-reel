@@ -39,12 +39,17 @@ On any machine that has Docker:
 git clone <this-repo>
 cd jellyfin-plugin-shuffle
 
-# Produces dist/Jellyfin.Plugin.RandomReel.dll + dist/meta.json
+# Build inside a .NET 8 SDK container — output goes to bin/Release/net8.0/
 docker run --rm \
   -v "$(pwd)":/src -w /src \
   mcr.microsoft.com/dotnet/sdk:8.0 \
   dotnet build Jellyfin.Plugin.RandomReel/Jellyfin.Plugin.RandomReel.csproj \
     -c Release --nologo -v quiet
+
+# Collect the two required files
+mkdir -p dist
+cp Jellyfin.Plugin.RandomReel/bin/Release/net8.0/Jellyfin.Plugin.RandomReel.dll dist/
+cp meta.json dist/
 ```
 
 Copy the two files from `dist/` to your server (e.g. via `scp` or a shared volume):

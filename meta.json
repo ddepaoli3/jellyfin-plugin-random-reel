@@ -1,0 +1,13 @@
+{
+  "category": "General",
+  "changelog": "Initial release",
+  "description": "Plays random clips from a folder or playlist, starting at a random position within configurable margins.",
+  "guid": "a3a23ce9-cf03-4772-b49a-170913d6139a",
+  "imageUrl": null,
+  "name": "Random Reel",
+  "overview": "Random clip playback from folders and playlists",
+  "owner": "deppa",
+  "targetAbi": "10.9.0.0",
+  "timestamp": "2026-06-06T00:00:00Z",
+  "version": "1.0.0.0"
+}

@@ -63,23 +63,8 @@ fi
 cp "$DLL" "$OUT_DIR/"
 echo "==> Copied to $OUT_DIR/$(basename "$DLL")"
 
-# Write meta.json so Jellyfin recognises the plugin as compatible (targetAbi must match server version)
-cat > "$OUT_DIR/meta.json" << 'METAEOF'
-{
-  "category": "General",
-  "changelog": "Initial release",
-  "description": "Plays random clips from a folder or playlist, starting at a random position within configurable margins.",
-  "guid": "a3a23ce9-cf03-4772-b49a-170913d6139a",
-  "imageUrl": null,
-  "name": "Random Reel",
-  "overview": "Random clip playback from folders and playlists",
-  "owner": "deppa",
-  "targetAbi": "10.9.0.0",
-  "timestamp": "2026-06-06T00:00:00Z",
-  "version": "1.0.0.0"
-}
-METAEOF
-echo "==> meta.json written"
+cp "$PROJECT_DIR/meta.json" "$OUT_DIR/meta.json"
+echo "==> meta.json copied"
 
 if docker ps --format '{{.Names}}' | grep -q '^jellyfin-shuffle-dev$'; then
   echo "==> Restarting jellyfin-shuffle-dev..."
