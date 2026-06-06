@@ -1,0 +1,18 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:10.9.11
+    container_name: jellyfin-shuffle-dev
+    ports:
+      - "8096:8096"
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:8096
+    volumes:
+      - ./jellyfin-data/config:/config
+      - ./jellyfin-data/cache:/cache
+      # Plugin DLL — rebuilt by deploy.sh and hot-picked up after Jellyfin restart
+      - ./dist:/config/plugins/RandomReel
+      # index.html mounted as writable file so the plugin can inject the <script> tag.
+      # deploy.sh extracts this file automatically on first run.
+      - ./jellyfin-data/index.html:/jellyfin/jellyfin-web/index.html
+      - /Users/deppa/workspace-personale/Jellyfin-Roulette/media:/media:ro
+    restart: unless-stopped
