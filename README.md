@@ -22,7 +22,7 @@ A Jellyfin plugin that plays random clips from any folder or playlist, starting 
 
 ## Requirements
 
-- Jellyfin **10.9.11**
+- Jellyfin **10.11.10**
 - Docker (build) — no local .NET installation needed
 
 ---
@@ -39,10 +39,10 @@ On any machine that has Docker:
 git clone <this-repo>
 cd jellyfin-plugin-shuffle
 
-# Build inside a .NET 8 SDK container — output goes to bin/Release/net9.0/
+# Build inside a .NET 9 SDK container — output goes to bin/Release/net9.0/
 docker run --rm \
   -v "$(pwd)":/src -w /src \
-  mcr.microsoft.com/dotnet/sdk:8.0 \
+  mcr.microsoft.com/dotnet/sdk:9.0 \
   dotnet build Jellyfin.Plugin.RandomReel/Jellyfin.Plugin.RandomReel.csproj \
     -c Release --nologo -v quiet
 
@@ -85,7 +85,7 @@ The plugin patches `index.html` on startup if it has write access to the web dir
 
 ```bash
 # Extract a clean index.html from the Jellyfin image (match your running version)
-docker run --rm --entrypoint=cat jellyfin/jellyfin:10.9.11 \
+docker run --rm --entrypoint=cat jellyfin/jellyfin:10.11.10 \
   /jellyfin/jellyfin-web/index.html > /srv/jellyfin/index.html
 ```
 
@@ -94,7 +94,7 @@ Add this volume to your `docker-compose.yml`:
 ```yaml
 services:
   jellyfin:
-    image: jellyfin/jellyfin:10.9.11
+    image: jellyfin/jellyfin:10.11.10
     volumes:
       - /srv/jellyfin/config:/config
       - /srv/jellyfin/cache:/cache
@@ -113,7 +113,7 @@ On subsequent restarts it detects the tag is already present and skips patching.
 
 ```bash
 # Extract
-docker run --rm --entrypoint=cat jellyfin/jellyfin:10.9.11 \
+docker run --rm --entrypoint=cat jellyfin/jellyfin:10.11.10 \
   /jellyfin/jellyfin-web/index.html > index.html
 
 # Inject the tag
@@ -148,7 +148,7 @@ open http://localhost:8096
 
 `deploy.sh` handles everything:
 1. Extracts `index.html` from the official Jellyfin image and injects the plugin script tag
-2. Builds the plugin DLL inside a .NET 8 SDK container (nothing installed locally)
+2. Builds the plugin DLL inside a .NET 9 SDK container (nothing installed locally)
 3. Writes `meta.json` alongside the DLL so Jellyfin recognises the plugin
 4. Restarts the `jellyfin-shuffle-dev` container
 
