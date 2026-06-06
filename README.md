@@ -39,7 +39,7 @@ On any machine that has Docker:
 git clone <this-repo>
 cd jellyfin-plugin-shuffle
 
-# Build inside a .NET 8 SDK container — output goes to bin/Release/net8.0/
+# Build inside a .NET 8 SDK container — output goes to bin/Release/net9.0/
 docker run --rm \
   -v "$(pwd)":/src -w /src \
   mcr.microsoft.com/dotnet/sdk:8.0 \
@@ -48,7 +48,7 @@ docker run --rm \
 
 # Collect the two required files
 mkdir -p dist
-cp Jellyfin.Plugin.RandomReel/bin/Release/net8.0/Jellyfin.Plugin.RandomReel.dll dist/
+cp Jellyfin.Plugin.RandomReel/bin/Release/net9.0/Jellyfin.Plugin.RandomReel.dll dist/
 cp meta.json dist/
 ```
 
