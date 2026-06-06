@@ -39,10 +39,10 @@ On any machine that has Docker:
 git clone <this-repo>
 cd jellyfin-plugin-shuffle
 
-# Build inside a .NET 8 SDK container — output goes to bin/Release/net9.0/
+# Build inside a .NET 9 SDK container — output goes to bin/Release/net9.0/
 docker run --rm \
   -v "$(pwd)":/src -w /src \
-  mcr.microsoft.com/dotnet/sdk:8.0 \
+  mcr.microsoft.com/dotnet/sdk:9.0 \
   dotnet build Jellyfin.Plugin.RandomReel/Jellyfin.Plugin.RandomReel.csproj \
     -c Release --nologo -v quiet
 
