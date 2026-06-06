@@ -7,7 +7,7 @@
   "name": "Random Reel",
   "overview": "Random clip playback from folders and playlists",
   "owner": "deppa",
-  "targetAbi": "10.9.0.0",
+  "targetAbi": "10.11.0.0",
   "timestamp": "2026-06-06T00:00:00Z",
   "version": "1.0.0.0"
 }
