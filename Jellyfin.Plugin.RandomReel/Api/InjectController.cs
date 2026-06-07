@@ -20,7 +20,6 @@ public class InjectController : ControllerBase
     /// <returns>JavaScript source.</returns>
     [HttpGet("inject.js")]
     [AllowAnonymous]
-    [Produces("application/javascript")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetInjectScript()
