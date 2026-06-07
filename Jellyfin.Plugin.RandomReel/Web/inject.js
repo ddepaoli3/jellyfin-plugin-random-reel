@@ -99,14 +99,20 @@
             var iconEl = rrItem.querySelector('.listItemIcon, .material-icons, i');
             if (iconEl) iconEl.textContent = 'casino';
 
-            // Replace the label text regardless of UI language
-            var allSpans = rrItem.querySelectorAll('span, div');
-            for (var k = 0; k < allSpans.length; k++) {
-                var t = allSpans[k].textContent.trim();
-                if (t.length > 0 && allSpans[k].children.length === 0) {
-                    allSpans[k].textContent = 'Random Reel'; break;
+            // Walk all text nodes: replace any visible label (non-icon) with "Random Reel"
+            (function replaceText(node) {
+                if (node.nodeType === 3) { // TEXT_NODE
+                    var v = (node.nodeValue || '').trim();
+                    // Skip empty nodes and material-icon ligatures (short lowercase words like "shuffle")
+                    if (v.length > 2 && v !== 'casino') {
+                        node.nodeValue = node.nodeValue.replace(v, 'Random Reel');
+                    }
+                } else {
+                    for (var c = 0; c < node.childNodes.length; c++) {
+                        replaceText(node.childNodes[c]);
+                    }
                 }
-            }
+            }(rrItem));
 
             shuffleItem.parentNode.insertBefore(rrItem, shuffleItem.nextSibling);
             busy = false;
