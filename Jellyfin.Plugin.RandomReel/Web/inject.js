@@ -99,9 +99,11 @@
             var iconEl = rrItem.querySelector('.listItemIcon, .material-icons, i');
             if (iconEl) iconEl.textContent = 'casino';
 
+            // Replace the label text regardless of UI language
             var allSpans = rrItem.querySelectorAll('span, div');
             for (var k = 0; k < allSpans.length; k++) {
-                if (allSpans[k].textContent.trim() === 'Shuffle') {
+                var t = allSpans[k].textContent.trim();
+                if (t.length > 0 && allSpans[k].children.length === 0) {
                     allSpans[k].textContent = 'Random Reel'; break;
                 }
             }
