@@ -212,16 +212,17 @@
 
         var capturedSession = rrSession;
 
-        // Duration timer — stop playback after playbackDurationTicks
-        if (playbackDurationTicks && playbackDurationTicks > 0 && sessionId) {
+        // Duration timer — after playbackDurationTicks, move to next clip
+        if (playbackDurationTicks && playbackDurationTicks > 0) {
             var durationMs = playbackDurationTicks / 10000; // ticks → ms
             capturedSession.durationTimer = setTimeout(function () {
                 if (!rrSession || rrSession.itemId !== itemId) return;
-                console.log('[RandomReel] Duration elapsed — stopping playback.');
+                console.log('[RandomReel] Duration elapsed — launching next clip.');
                 var stoppedItemId = rrSession.itemId;
+                var nextFolderId  = rrSession.folderId;
                 stopMonitor();
-                stopPlayback(sessionId);
                 cleanupWatchHistory(stoppedItemId);
+                launchRandomReel(nextFolderId);
             }, durationMs);
             console.log('[RandomReel] Duration timer set for', Math.round(durationMs / 60000), 'min.');
         }
