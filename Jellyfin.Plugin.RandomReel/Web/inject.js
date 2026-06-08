@@ -20,23 +20,43 @@
     // which saves the playback position and adds items to "Continue Watching".
     // We suppress those reports while a reel is active.
     // When the player reports PlaybackStopped we let it through, then clean up.
+    // pendingCleanup: set of itemIds that need watch-history cleanup.
+    // Populated when a clip transitions so we clean the RIGHT item even after
+    // rrSession has moved on to the next clip.
+    var pendingCleanup = {};
+
     var _originalFetch = window.fetch.bind(window);
     window.fetch = function (url, options) {
-        if (rrSession && typeof url === 'string') {
-            if (url.indexOf('/Sessions/Playing/Progress') !== -1) {
-                // Suppress — don't save position to server
+        if (typeof url === 'string') {
+            // Always suppress Progress while a reel is active
+            if (rrSession && url.indexOf('/Sessions/Playing/Progress') !== -1) {
                 return Promise.resolve(new Response(null, { status: 204 }));
             }
+            // Intercept Stopped: extract itemId from body, block the report,
+            // and clean up watch history for that specific item.
             if (url.indexOf('/Sessions/Playing/Stopped') !== -1) {
-                // Let the stop report through, then clean up twice:
-                // immediately (for position reset) and again after 3 s
-                // (in case the player fires a stray Progress just before Stopped).
-                var stoppedItemId = rrSession.itemId;
-                return _originalFetch(url, options).then(function (r) {
-                    cleanupWatchHistory(stoppedItemId);
-                    setTimeout(function () { cleanupWatchHistory(stoppedItemId); }, 3000);
-                    return r;
-                });
+                // Parse the itemId from the request body if possible
+                var bodyItemId = null;
+                try {
+                    var body = options && options.body;
+                    if (typeof body === 'string') {
+                        var parsed = JSON.parse(body);
+                        bodyItemId = parsed.ItemId || parsed.itemId || null;
+                    }
+                } catch (e) { /* ignore */ }
+
+                // If this item is in our pending cleanup list, or a reel is active,
+                // block the report (prevents Jellyfin marking item as watched/continued)
+                // and do the cleanup ourselves.
+                var itemToClean = bodyItemId || (rrSession && rrSession.itemId) || null;
+                if (itemToClean && (rrSession || pendingCleanup[itemToClean])) {
+                    delete pendingCleanup[itemToClean];
+                    // Block Stopped — let Jellyfin think it never happened.
+                    // Our own cleanup will clear the watch state.
+                    cleanupWatchHistory(itemToClean);
+                    setTimeout(function () { cleanupWatchHistory(itemToClean); }, 2000);
+                    return Promise.resolve(new Response(null, { status: 204 }));
+                }
             }
         }
         return _originalFetch(url, options);
@@ -220,8 +240,8 @@
                 console.log('[RandomReel] Duration elapsed — launching next clip.');
                 var stoppedItemId = rrSession.itemId;
                 var nextFolderId  = rrSession.folderId;
-                // Clear timers but keep rrSession alive so fetch intercept
-                // continues blocking Progress reports during the transition
+                // Mark item for cleanup, clear timers, keep rrSession alive
+                pendingCleanup[stoppedItemId] = true;
                 if (rrSession.graceTimer)   clearTimeout(rrSession.graceTimer);
                 if (rrSession.pollInterval) clearInterval(rrSession.pollInterval);
                 rrSession.graceTimer = null;
@@ -316,7 +336,8 @@
                 if (!rrSession) return;
                 var capturedItemId   = rrSession.itemId;
                 var capturedFolderId = folderId;
-                // Clear timers but keep rrSession alive to block Progress reports
+                // Mark item for cleanup, clear timers, keep rrSession alive
+                pendingCleanup[capturedItemId] = true;
                 if (rrSession.graceTimer)    clearTimeout(rrSession.graceTimer);
                 if (rrSession.pollInterval)  clearInterval(rrSession.pollInterval);
                 if (rrSession.durationTimer) clearTimeout(rrSession.durationTimer);
