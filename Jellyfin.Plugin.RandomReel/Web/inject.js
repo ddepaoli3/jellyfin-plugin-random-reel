@@ -184,25 +184,47 @@
             .catch(function (err) { console.warn('[RandomReel] cleanupWatchHistory:', err); });
     }
 
-    // ── 7. Stop monitoring ────────────────────────────────────────────────────────
+    // ── 7. Stop playback via Sessions API ────────────────────────────────────────
+    function stopPlayback(sessionId) {
+        var hdrs = authHeaders();
+        fetch('/Sessions/' + sessionId + '/Playing?playCommand=Stop', { method: 'POST', headers: hdrs })
+            .catch(function (err) { console.warn('[RandomReel] stopPlayback error:', err); });
+    }
+
+    // ── 8. Stop monitoring ────────────────────────────────────────────────────────
     function stopMonitor() {
         if (rrSession) {
-            if (rrSession.graceTimer)  clearTimeout(rrSession.graceTimer);
-            if (rrSession.pollInterval) clearInterval(rrSession.pollInterval);
+            if (rrSession.graceTimer)    clearTimeout(rrSession.graceTimer);
+            if (rrSession.pollInterval)  clearInterval(rrSession.pollInterval);
+            if (rrSession.durationTimer) clearTimeout(rrSession.durationTimer);
         }
         rrSession = null;
         unhookNextButton();
     }
 
-    // ── 8. Poll every 8 s — only for cleanup, never auto-plays ───────────────────
+    // ── 9. Poll every 8 s — only for cleanup, never auto-plays ───────────────────
     // Grace period: wait 15 s before first poll so the player has time to register
     // the session on the server. Require 2 consecutive "not playing" polls before
     // concluding the clip has stopped (avoids false positives during buffering).
-    function startMonitor(itemId, folderId) {
+    function startMonitor(itemId, folderId, playbackDurationTicks, sessionId) {
         stopMonitor();
-        rrSession = { itemId: itemId, folderId: folderId, pollInterval: null, missCount: 0 };
+        rrSession = { itemId: itemId, folderId: folderId, pollInterval: null, missCount: 0, durationTimer: null };
 
         var capturedSession = rrSession;
+
+        // Duration timer — stop playback after playbackDurationTicks
+        if (playbackDurationTicks && playbackDurationTicks > 0 && sessionId) {
+            var durationMs = playbackDurationTicks / 10000; // ticks → ms
+            capturedSession.durationTimer = setTimeout(function () {
+                if (!rrSession || rrSession.itemId !== itemId) return;
+                console.log('[RandomReel] Duration elapsed — stopping playback.');
+                var stoppedItemId = rrSession.itemId;
+                stopMonitor();
+                stopPlayback(sessionId);
+                cleanupWatchHistory(stoppedItemId);
+            }, durationMs);
+            console.log('[RandomReel] Duration timer set for', Math.round(durationMs / 60000), 'min.');
+        }
 
         // Start polling only after grace period
         capturedSession.graceTimer = setTimeout(function () {
@@ -347,7 +369,7 @@
                         });
                     }
                     console.log('[RandomReel] Playback started.');
-                    startMonitor(rrData.itemId, folderId);
+                    startMonitor(rrData.itemId, folderId, rrData.playbackDurationTicks, session.Id);
                 });
             })
             .catch(function (err) { console.error('[RandomReel] Error:', err); });

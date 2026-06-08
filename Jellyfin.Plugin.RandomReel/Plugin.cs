@@ -55,6 +55,15 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = Name,
                 EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
+            },
+            new PluginPageInfo
+            {
+                Name = "RandomReelApp",
+                DisplayName = "Random Reel",
+                EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.mainPage.html", GetType().Namespace),
+                EnableInMainMenu = true,
+                MenuSection = "PluginPages",
+                MenuIcon = "casino"
             }
         ];
     }
