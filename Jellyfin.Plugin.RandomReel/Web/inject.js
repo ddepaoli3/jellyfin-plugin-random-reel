@@ -220,8 +220,15 @@
                 console.log('[RandomReel] Duration elapsed — launching next clip.');
                 var stoppedItemId = rrSession.itemId;
                 var nextFolderId  = rrSession.folderId;
-                stopMonitor();
+                // Clear timers but keep rrSession alive so fetch intercept
+                // continues blocking Progress reports during the transition
+                if (rrSession.graceTimer)   clearTimeout(rrSession.graceTimer);
+                if (rrSession.pollInterval) clearInterval(rrSession.pollInterval);
+                rrSession.graceTimer = null;
+                rrSession.pollInterval = null;
+                rrSession.durationTimer = null;
                 cleanupWatchHistory(stoppedItemId);
+                // launchRandomReel → startMonitor will call stopMonitor internally
                 launchRandomReel(nextFolderId);
             }, durationMs);
             console.log('[RandomReel] Duration timer set for', Math.round(durationMs / 60000), 'min.');
@@ -309,7 +316,13 @@
                 if (!rrSession) return;
                 var capturedItemId   = rrSession.itemId;
                 var capturedFolderId = folderId;
-                stopMonitor();
+                // Clear timers but keep rrSession alive to block Progress reports
+                if (rrSession.graceTimer)    clearTimeout(rrSession.graceTimer);
+                if (rrSession.pollInterval)  clearInterval(rrSession.pollInterval);
+                if (rrSession.durationTimer) clearTimeout(rrSession.durationTimer);
+                rrSession.graceTimer = null;
+                rrSession.pollInterval = null;
+                rrSession.durationTimer = null;
                 cleanupWatchHistory(capturedItemId);
                 console.log('[RandomReel] Next clicked — launching next clip.');
                 setTimeout(function () { launchRandomReel(capturedFolderId); }, 200);
