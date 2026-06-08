@@ -26,7 +26,7 @@ public class ShuffleController : ControllerBase
     private static readonly ConcurrentDictionary<string, HashSet<Guid>> SessionPlayed
         = new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly Random Rng = new();
+    private static readonly Random Rng = Random.Shared;
 
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<ShuffleController> _logger;
