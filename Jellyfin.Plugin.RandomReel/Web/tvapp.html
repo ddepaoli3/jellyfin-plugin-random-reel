@@ -375,12 +375,13 @@
 
                     if (useHls) {
                         var streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
-                            '?api_key='        + encodeURIComponent(state.token) +
-                            '&PlaySessionId='  + encodeURIComponent(sessionId) +
-                            '&MediaSourceId='  + encodeURIComponent(mediaSourceId) +
+                            '?api_key='          + encodeURIComponent(state.token) +
+                            '&PlaySessionId='    + encodeURIComponent(sessionId) +
+                            '&MediaSourceId='    + encodeURIComponent(mediaSourceId) +
+                            '&StartTimeTicks='   + Math.floor(startTick) +
                             '&AudioCodec=aac' +
                             '&VideoCodec=h264' +
-                            '&_='              + Date.now();
+                            '&_='                + Date.now();
 
                         if (window.Hls && Hls.isSupported()) {
                             console.log('[RR] hls.js, startTick:', startTick);
