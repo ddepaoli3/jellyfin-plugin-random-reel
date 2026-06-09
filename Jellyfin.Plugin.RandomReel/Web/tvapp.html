@@ -77,6 +77,19 @@
         .btn-secondary:hover { background: #444; }
 
         #loginError { color: #ef5350; font-size: .95em; min-height: 1.2em; }
+
+        /* Quick Connect */
+        #qcBox {
+            display: none; flex-direction: column; align-items: center; gap: 1em;
+            background: #1a1a1a; border: 2px solid #444; border-radius: 12px;
+            padding: 1.8em 2em; max-width: 420px; width: 100%; text-align: center;
+        }
+        #qcCode {
+            font-size: 3em; font-weight: bold; letter-spacing: .2em;
+            color: #00a4dc; font-family: monospace;
+        }
+        #qcStatus { color: #aaa; font-size: .9em; }
+        .divider { color: #555; font-size: .85em; width: 100%; max-width: 420px; text-align: center; }
     </style>
 </head>
 <body>
@@ -89,6 +102,15 @@
     <input id="username"  type="text"     placeholder="Username" autocomplete="username" />
     <input id="password"  type="password" placeholder="Password"  autocomplete="current-password" />
     <button class="btn btn-primary" id="loginBtn" style="width:100%;max-width:420px">Sign In</button>
+    <p class="divider">— or —</p>
+    <button class="btn btn-secondary" id="qcStartBtn" style="width:100%;max-width:420px">Use Quick Connect</button>
+    <!-- Quick Connect panel -->
+    <div id="qcBox">
+        <p style="color:#aaa;font-size:.9em">Enter this code in the Jellyfin app on your phone or browser</p>
+        <div id="qcCode">——</div>
+        <p id="qcStatus">Waiting for approval…</p>
+        <button class="btn btn-secondary" id="qcCancelBtn">Cancel</button>
+    </div>
     <p id="loginError"></p>
 </div>
 
@@ -123,7 +145,7 @@
 (function () {
     var STATE_KEY = 'rrtvState';
     var state = {};
-    var rr = { folderId: null, itemId: null, durMs: 0, timer: null, progressTimer: null, startedAt: 0 };
+    var rr = { folderId: null, itemId: null, durMs: 0, progressTimer: null, startedAt: 0 };
     var osdTimer = null;
 
     function $(id) { return document.getElementById(id); }
@@ -150,7 +172,7 @@
         return fetch(state.serverUrl + path, opts);
     }
 
-    /* ── Login ── */
+    /* ── Login (password) ── */
     function login(serverUrl, username, password) {
         state.serverUrl = serverUrl.replace(/\/$/, '');
         return fetch(state.serverUrl + '/Users/AuthenticateByName', {
@@ -160,6 +182,68 @@
         })
         .then(function(r) { if (!r.ok) throw new Error('Login failed (' + r.status + ')'); return r.json(); })
         .then(function(d) { state.token = d.AccessToken; state.userId = d.User.Id; saveState(); });
+    }
+
+    /* ── Quick Connect ── */
+    var qcPollTimer = null;
+
+    function qcStop() {
+        if (qcPollTimer) { clearInterval(qcPollTimer); qcPollTimer = null; }
+        $('qcBox').style.display = 'none';
+        $('qcStartBtn').style.display = '';
+        $('qcCode').textContent = '——';
+        $('qcStatus').textContent = 'Waiting for approval…';
+    }
+
+    function qcStart() {
+        var serverUrl = $('serverUrl').value.trim();
+        if (!serverUrl) { $('loginError').textContent = 'Enter the server URL first.'; return; }
+        state.serverUrl = serverUrl.replace(/\/$/, '');
+        $('loginError').textContent = '';
+        $('qcStartBtn').style.display = 'none';
+        $('qcBox').style.display = 'flex';
+        $('qcCode').textContent = '…';
+        $('qcStatus').textContent = 'Requesting code…';
+
+        fetch(state.serverUrl + '/QuickConnect/Initiate', {
+            method: 'GET',
+            headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { if (!r.ok) throw new Error('QuickConnect not available (' + r.status + ')'); return r.json(); })
+        .then(function(d) {
+            var secret = d.Secret;
+            $('qcCode').textContent = d.Code;
+            $('qcStatus').textContent = 'Waiting for approval…';
+
+            qcPollTimer = setInterval(function() {
+                fetch(state.serverUrl + '/QuickConnect/Connect?Secret=' + encodeURIComponent(secret), {
+                    headers: { 'Authorization': authHeader(false) }
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (!result.Authenticated) return;
+                    clearInterval(qcPollTimer); qcPollTimer = null;
+                    $('qcStatus').textContent = 'Approved! Signing in…';
+                    // Exchange secret for token
+                    return fetch(state.serverUrl + '/Users/AuthenticateWithQuickConnect', {
+                        method: 'POST',
+                        headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Secret: secret })
+                    })
+                    .then(function(r) { if (!r.ok) throw new Error('Auth failed (' + r.status + ')'); return r.json(); })
+                    .then(function(d) {
+                        state.token = d.AccessToken; state.userId = d.User.Id; saveState();
+                        qcStop();
+                        showPicker();
+                    });
+                })
+                .catch(function() { /* ignore poll errors */ });
+            }, 3000);
+        })
+        .catch(function(e) {
+            qcStop();
+            $('loginError').textContent = e.message;
+        });
     }
 
     /* ── Libraries ── */
@@ -194,7 +278,6 @@
 
     /* ── Playback ── */
     function clearReel() {
-        if (rr.timer)        { clearTimeout(rr.timer);   rr.timer = null; }
         if (rr.progressTimer){ clearInterval(rr.progressTimer); rr.progressTimer = null; }
         $('progressBar').style.width = '0%';
         $('countdown').style.display = 'none';
@@ -228,49 +311,70 @@
                 rr.itemId = itemId;
                 rr.durMs  = durTicks / 10000;
 
-                var startSecs = startTick / 10000000;
-                var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
-                    '?api_key='    + encodeURIComponent(state.token) +
-                    '&AudioCodec=aac' +
-                    '&Container=mp4' +
-                    '&_='          + Date.now();
-
-                console.log('[RR] Stream URL:', streamUrl, 'seek to:', startSecs, 's');
-
                 $('clipTitle').textContent = name;
-                $('clipInfo').textContent  = 'Starting at ' + Math.round(startSecs / 60) + ' min' +
+                $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
                     (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
 
-                vid.src = streamUrl;
-                vid.load();
-
-                // Seek to random position once metadata is available
-                vid.addEventListener('loadedmetadata', function onMeta() {
-                    vid.removeEventListener('loadedmetadata', onMeta);
-                    vid.currentTime = startSecs;
-                    vid.play().catch(function(){});
-                });
-
-                rr.startedAt = Date.now();
-
-                if (rr.durMs > 0) {
-                    // Progress bar
-                    rr.progressTimer = setInterval(function() {
-                        var elapsed = Date.now() - rr.startedAt;
-                        var pct = Math.min(100, (elapsed / rr.durMs) * 100);
-                        $('progressBar').style.width = pct + '%';
-                        var remaining = Math.max(0, Math.round((rr.durMs - elapsed) / 1000));
-                        if (remaining <= 30) {
-                            $('countdown').style.display = 'block';
-                            $('countdown').textContent = 'Next in ' + remaining + 's';
+                // Get PlaySessionId so Jellyfin honours StartTimeTicks in the stream
+                return api('/Items/' + itemId + '/PlaybackInfo', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        UserId: state.userId,
+                        StartTimeTicks: Math.floor(startTick),
+                        DeviceProfile: {
+                            DirectPlayProfiles: [],
+                            TranscodingProfiles: [{
+                                Container: 'mp4',
+                                Type: 'Video',
+                                AudioCodec: 'aac',
+                                VideoCodec: 'h264'
+                            }],
+                            CodecProfiles: [],
+                            SubtitleProfiles: []
                         }
-                    }, 1000);
+                    })
+                })
+                .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
+                .then(function(info) {
+                    var sessionId = info.PlaySessionId;
+                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                        '?api_key='          + encodeURIComponent(state.token) +
+                        '&PlaySessionId='    + encodeURIComponent(sessionId) +
+                        '&StartTimeTicks='   + Math.floor(startTick) +
+                        '&AudioCodec=aac' +
+                        '&VideoCodec=h264' +
+                        '&Container=mp4' +
+                        '&_='               + Date.now();
 
-                    // Auto-advance
-                    rr.timer = setTimeout(function() {
-                        playNext();
-                    }, rr.durMs);
-                }
+                    console.log('[RR] sessionId:', sessionId, 'startTick:', startTick);
+
+                    vid.src = streamUrl;
+                    vid.load();
+                    vid.play().catch(function(){});
+
+                    // Snapshot durMs now so the interval closure always uses the right value
+                    var clipDurMs = rr.durMs;
+                    rr.startedAt = Date.now();
+
+                    console.log('[RR] durMs:', clipDurMs, 'startedAt:', rr.startedAt);
+
+                    if (clipDurMs > 0) {
+                        // Single interval drives both progress bar and auto-advance
+                        rr.progressTimer = setInterval(function() {
+                            var elapsed = Date.now() - rr.startedAt;
+                            var pct = Math.min(100, (elapsed / clipDurMs) * 100);
+                            $('progressBar').style.width = pct + '%';
+                            var remaining = Math.max(0, Math.round((clipDurMs - elapsed) / 1000));
+                            if (remaining <= 30) {
+                                $('countdown').style.display = 'block';
+                                $('countdown').textContent = 'Next in ' + remaining + 's';
+                            }
+                            if (elapsed >= clipDurMs) {
+                                playNext();
+                            }
+                        }, 1000);
+                    }
+                });
             })
             .catch(function(e) {
                 $('clipTitle').textContent = 'Error: ' + e.message;
@@ -338,12 +442,21 @@
         clearReel(); state = {}; localStorage.removeItem(STATE_KEY); showLogin();
     });
 
+    $('qcStartBtn').addEventListener('click', qcStart);
+    $('qcCancelBtn').addEventListener('click', qcStop);
+
     ['serverUrl','username','password'].forEach(function(id) {
         $(id).addEventListener('keydown', function(e) { if (e.key==='Enter') $('loginBtn').click(); });
     });
 
     /* ── Init ── */
     loadState();
+    // Pre-fill server URL with the origin serving this page (can be overridden)
+    if (!state.serverUrl) {
+        $('serverUrl').value = window.location.origin;
+    } else {
+        $('serverUrl').value = state.serverUrl;
+    }
     if (state.token && state.userId && state.serverUrl) {
         api('/Users/' + state.userId)
             .then(function(r) { if (r.ok) showPicker(); else { state={}; showLogin(); } })
