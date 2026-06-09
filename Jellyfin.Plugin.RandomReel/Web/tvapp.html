@@ -230,7 +230,8 @@
                     '&StartTimeTicks=' + Math.floor(startTick) +
                     '&AudioCodec=aac' +
                     '&VideoCodec=copy' +
-                    '&Container=mp4';
+                    '&Container=mp4' +
+                    '&_='             + Date.now();
 
                 $('clipTitle').textContent = name;
                 $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
