@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Random Reel</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #101010; color: #fff; font-family: sans-serif; min-height: 100vh; }
+
+        /* ── Login ── */
+        #loginScreen {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; gap: 1.2em; padding: 2em;
+        }
+        #loginScreen h1 { font-size: 2em; }
+        #loginScreen input {
+            width: 100%; max-width: 420px; padding: 0.8em 1em; font-size: 1.1em;
+            background: #222; border: 2px solid #444; border-radius: 8px; color: #fff; outline: none;
+        }
+        #loginScreen input:focus { border-color: #00a4dc; }
+
+        /* ── Library picker ── */
+        #pickerScreen { display: none; padding: 2em; }
+        #pickerScreen h1 { font-size: 1.8em; margin-bottom: 0.3em; }
+        #pickerScreen .sub { color: #aaa; margin-bottom: 1.5em; font-size: .95em; }
+        #folderList { display: flex; flex-direction: column; gap: .7em; max-width: 650px; }
+        .folder-btn {
+            display: flex; align-items: center; gap: 1em; padding: 1em 1.3em;
+            background: #1e1e1e; border: 2px solid transparent; border-radius: 10px;
+            color: #fff; font-size: 1.15em; cursor: pointer; text-align: left; width: 100%;
+        }
+        .folder-btn:hover, .folder-btn:focus { border-color: #00a4dc; background: #1a2f3a; outline: none; }
+        .folder-btn:disabled { opacity: .5; cursor: default; }
+
+        /* ── Player ── */
+        #playerScreen { display: none; position: relative; background: #000; min-height: 100vh; }
+        #mainVideo { width: 100%; height: 100vh; object-fit: contain; display: block; }
+
+        /* OSD overlay */
+        #osd {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,.85));
+            padding: 2em 2em 1.5em; display: flex; align-items: flex-end;
+            justify-content: space-between; opacity: 0; transition: opacity .3s;
+            pointer-events: none;
+        }
+        #osd.visible { opacity: 1; pointer-events: all; }
+        #nowPlaying { font-size: 1.1em; font-weight: bold; max-width: 60%; }
+        #nowPlaying .sub { font-size: .8em; font-weight: normal; color: #aaa; margin-top: .2em; }
+        #osdBtns { display: flex; gap: 1em; }
+        .osd-btn {
+            padding: .7em 1.5em; border-radius: 8px; border: 2px solid rgba(255,255,255,.5);
+            background: rgba(0,0,0,.6); color: #fff; font-size: 1em; cursor: pointer; font-weight: bold;
+        }
+        .osd-btn:focus, .osd-btn:hover { border-color: #00a4dc; outline: none; }
+
+        /* Progress bar */
+        #progressBar {
+            position: fixed; bottom: 0; left: 0; height: 4px;
+            background: #00a4dc; width: 0%; transition: width .5s linear; z-index: 10;
+        }
+
+        /* Countdown badge */
+        #countdown {
+            position: fixed; top: 1.2em; right: 1.5em;
+            background: rgba(0,0,0,.65); border: 1px solid rgba(255,255,255,.3);
+            border-radius: 20px; padding: .4em 1em; font-size: .9em; color: #aaa;
+            display: none;
+        }
+
+        /* Generic button */
+        .btn { padding: .85em 2em; font-size: 1.05em; border-radius: 8px; border: 2px solid transparent; cursor: pointer; font-weight: bold; }
+        .btn:focus { outline: none; border-color: #00a4dc; }
+        .btn-primary { background: #00a4dc; color: #fff; }
+        .btn-secondary { background: #333; color: #fff; }
+        .btn-secondary:hover { background: #444; }
+
+        #loginError { color: #ef5350; font-size: .95em; min-height: 1.2em; }
+
+        /* Quick Connect */
+        #qcBox {
+            display: none; flex-direction: column; align-items: center; gap: 1em;
+            background: #1a1a1a; border: 2px solid #444; border-radius: 12px;
+            padding: 1.8em 2em; max-width: 420px; width: 100%; text-align: center;
+        }
+        #qcCode {
+            font-size: 3em; font-weight: bold; letter-spacing: .2em;
+            color: #00a4dc; font-family: monospace;
+        }
+        #qcStatus { color: #aaa; font-size: .9em; }
+        .divider { color: #555; font-size: .85em; width: 100%; max-width: 420px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen">
+    <h1>🎲 Random Reel</h1>
+    <p style="color:#aaa;text-align:center">Sign in to your Jellyfin server</p>
+    <input id="serverUrl" type="url"      placeholder="Server URL  (e.g. http://192.168.1.10:8096)" />
+    <input id="username"  type="text"     placeholder="Username" autocomplete="username" />
+    <input id="password"  type="password" placeholder="Password"  autocomplete="current-password" />
+    <button class="btn btn-primary" id="loginBtn" style="width:100%;max-width:420px">Sign In</button>
+    <p class="divider">— or —</p>
+    <button class="btn btn-secondary" id="qcStartBtn" style="width:100%;max-width:420px">Use Quick Connect</button>
+    <!-- Quick Connect panel -->
+    <div id="qcBox">
+        <p style="color:#aaa;font-size:.9em">Enter this code in the Jellyfin app on your phone or browser</p>
+        <div id="qcCode">——</div>
+        <p id="qcStatus">Waiting for approval…</p>
+        <button class="btn btn-secondary" id="qcCancelBtn">Cancel</button>
+    </div>
+    <p id="loginError"></p>
+</div>
+
+<!-- Library picker -->
+<div id="pickerScreen">
+    <h1>🎲 Random Reel</h1>
+    <p class="sub">Choose a library to start</p>
+    <div id="folderList"></div>
+    <div style="margin-top:2em">
+        <button class="btn btn-secondary" id="logoutBtn">Sign out</button>
+    </div>
+</div>
+
+<!-- Player -->
+<div id="playerScreen">
+    <video id="mainVideo" autoplay playsinline></video>
+    <div id="progressBar"></div>
+    <div id="countdown"></div>
+    <div id="osd">
+        <div id="nowPlaying">
+            <div id="clipTitle">—</div>
+            <div class="sub" id="clipInfo"></div>
+        </div>
+        <div id="osdBtns">
+            <button class="osd-btn" id="nextBtn">⏭ Next</button>
+            <button class="osd-btn" id="stopBtn">⏹ Stop</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var STATE_KEY = 'rrtvState';
+    var state = {};
+    var rr = { folderId: null, itemId: null, durMs: 0, progressTimer: null, startedAt: 0 };
+    var osdTimer = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    /* ── Persist ── */
+    function saveState() { try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e){} }
+    function loadState() { try { state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}'); } catch(e){ state={}; } }
+
+    function deviceId() {
+        var id = localStorage.getItem('rrDeviceId');
+        if (!id) { id = 'rrtv-' + Math.random().toString(36).slice(2); localStorage.setItem('rrDeviceId', id); }
+        return id;
+    }
+
+    function authHeader(withToken) {
+        var h = 'MediaBrowser Client="Random Reel TV", Device="TV Browser", DeviceId="' + deviceId() + '", Version="1.0.0"';
+        if (withToken && state.token) h += ', Token="' + state.token + '"';
+        return h;
+    }
+
+    function api(path, opts) {
+        opts = opts || {};
+        opts.headers = Object.assign({ 'Authorization': authHeader(true), 'Content-Type': 'application/json' }, opts.headers || {});
+        return fetch(state.serverUrl + path, opts);
+    }
+
+    /* ── Login (password) ── */
+    function login(serverUrl, username, password) {
+        state.serverUrl = serverUrl.replace(/\/$/, '');
+        return fetch(state.serverUrl + '/Users/AuthenticateByName', {
+            method: 'POST',
+            headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Username: username, Pw: password })
+        })
+        .then(function(r) { if (!r.ok) throw new Error('Login failed (' + r.status + ')'); return r.json(); })
+        .then(function(d) { state.token = d.AccessToken; state.userId = d.User.Id; saveState(); });
+    }
+
+    /* ── Quick Connect ── */
+    var qcPollTimer = null;
+
+    function qcStop() {
+        if (qcPollTimer) { clearInterval(qcPollTimer); qcPollTimer = null; }
+        $('qcBox').style.display = 'none';
+        $('qcStartBtn').style.display = '';
+        $('qcCode').textContent = '——';
+        $('qcStatus').textContent = 'Waiting for approval…';
+    }
+
+    function qcStart() {
+        var serverUrl = $('serverUrl').value.trim();
+        if (!serverUrl) { $('loginError').textContent = 'Enter the server URL first.'; return; }
+        state.serverUrl = serverUrl.replace(/\/$/, '');
+        $('loginError').textContent = '';
+        $('qcStartBtn').style.display = 'none';
+        $('qcBox').style.display = 'flex';
+        $('qcCode').textContent = '…';
+        $('qcStatus').textContent = 'Requesting code…';
+
+        fetch(state.serverUrl + '/QuickConnect/Initiate', {
+            method: 'GET',
+            headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' }
+        })
+        .then(function(r) { if (!r.ok) throw new Error('QuickConnect not available (' + r.status + ')'); return r.json(); })
+        .then(function(d) {
+            var secret = d.Secret;
+            $('qcCode').textContent = d.Code;
+            $('qcStatus').textContent = 'Waiting for approval…';
+
+            qcPollTimer = setInterval(function() {
+                fetch(state.serverUrl + '/QuickConnect/Connect?Secret=' + encodeURIComponent(secret), {
+                    headers: { 'Authorization': authHeader(false) }
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (!result.Authenticated) return;
+                    clearInterval(qcPollTimer); qcPollTimer = null;
+                    $('qcStatus').textContent = 'Approved! Signing in…';
+                    // Exchange secret for token
+                    return fetch(state.serverUrl + '/Users/AuthenticateWithQuickConnect', {
+                        method: 'POST',
+                        headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Secret: secret })
+                    })
+                    .then(function(r) { if (!r.ok) throw new Error('Auth failed (' + r.status + ')'); return r.json(); })
+                    .then(function(d) {
+                        state.token = d.AccessToken; state.userId = d.User.Id; saveState();
+                        qcStop();
+                        showPicker();
+                    });
+                })
+                .catch(function() { /* ignore poll errors */ });
+            }, 3000);
+        })
+        .catch(function(e) {
+            qcStop();
+            $('loginError').textContent = e.message;
+        });
+    }
+
+    /* ── Libraries ── */
+    function loadLibraries() {
+        $('folderList').innerHTML = '<p style="color:#aaa">Loading…</p>';
+        Promise.all([
+            api('/Users/' + state.userId + '/Views').then(function(r){ return r.json(); }),
+            api('/Users/' + state.userId + '/Items?IncludeItemTypes=Playlist&Recursive=true').then(function(r){ return r.json(); })
+        ]).then(function(res) {
+            var views = (res[0].Items || []).filter(function(v) {
+                return ['movies','tvshows','mixed',''].indexOf(v.CollectionType || '') !== -1;
+            });
+            renderFolders(views.concat(res[1].Items || []));
+        }).catch(function(e) {
+            $('folderList').innerHTML = '<p style="color:#ef5350">Error: ' + e.message + '</p>';
+        });
+    }
+
+    function renderFolders(items) {
+        var list = $('folderList');
+        if (!items.length) { list.innerHTML = '<p style="color:#aaa">No libraries found.</p>'; return; }
+        list.innerHTML = '';
+        items.forEach(function(item) {
+            var btn = document.createElement('button');
+            btn.className = 'folder-btn';
+            btn.innerHTML = '<span>🎬</span><span>' + item.Name + '</span>';
+            btn.addEventListener('click', function() { startReel(item.Id); });
+            list.appendChild(btn);
+        });
+        list.querySelector('.folder-btn').focus();
+    }
+
+    /* ── Playback ── */
+    function clearReel() {
+        if (rr.progressTimer){ clearInterval(rr.progressTimer); rr.progressTimer = null; }
+        $('progressBar').style.width = '0%';
+        $('countdown').style.display = 'none';
+    }
+
+    function startReel(folderId) {
+        rr.folderId = folderId;
+        showPlayer();
+        playNext();
+    }
+
+    function playNext() {
+        clearReel();
+        var vid = $('mainVideo');
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        $('clipTitle').textContent = 'Loading…';
+        $('clipInfo').textContent  = '';
+
+        api('/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId) + '&_=' + Date.now())
+            .then(function(r) { if (!r.ok) throw new Error('Next: ' + r.status); return r.json(); })
+            .then(function(data) {
+                var itemId    = data.itemId    || data.ItemId;
+                var startTick = data.startPositionTicks || data.StartPositionTicks || 0;
+                var durTicks  = data.playbackDurationTicks || data.PlaybackDurationTicks || 0;
+                var name      = data.itemName  || data.ItemName || 'Unknown';
+
+                console.log('[RR] Next clip:', itemId, 'startTick:', startTick, 'dur:', durTicks);
+
+                rr.itemId = itemId;
+                rr.durMs  = durTicks / 10000;
+
+                $('clipTitle').textContent = name;
+                $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
+                    (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
+
+                // Get PlaySessionId so Jellyfin honours StartTimeTicks in the stream
+                return api('/Items/' + itemId + '/PlaybackInfo', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        UserId: state.userId,
+                        StartTimeTicks: Math.floor(startTick),
+                        DeviceProfile: {
+                            DirectPlayProfiles: [],
+                            TranscodingProfiles: [{
+                                Container: 'mp4',
+                                Type: 'Video',
+                                AudioCodec: 'aac',
+                                VideoCodec: 'h264'
+                            }],
+                            CodecProfiles: [],
+                            SubtitleProfiles: []
+                        }
+                    })
+                })
+                .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
+                .then(function(info) {
+                    var sessionId = info.PlaySessionId;
+                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                        '?api_key='          + encodeURIComponent(state.token) +
+                        '&PlaySessionId='    + encodeURIComponent(sessionId) +
+                        '&StartTimeTicks='   + Math.floor(startTick) +
+                        '&AudioCodec=aac' +
+                        '&VideoCodec=h264' +
+                        '&Container=mp4' +
+                        '&_='               + Date.now();
+
+                    console.log('[RR] sessionId:', sessionId, 'startTick:', startTick);
+
+                    vid.src = streamUrl;
+                    vid.load();
+                    vid.play().catch(function(){});
+
+                    // Snapshot durMs now so the interval closure always uses the right value
+                    var clipDurMs = rr.durMs;
+                    rr.startedAt = Date.now();
+
+                    console.log('[RR] durMs:', clipDurMs, 'startedAt:', rr.startedAt);
+
+                    if (clipDurMs > 0) {
+                        // Single interval drives both progress bar and auto-advance
+                        rr.progressTimer = setInterval(function() {
+                            var elapsed = Date.now() - rr.startedAt;
+                            var pct = Math.min(100, (elapsed / clipDurMs) * 100);
+                            $('progressBar').style.width = pct + '%';
+                            var remaining = Math.max(0, Math.round((clipDurMs - elapsed) / 1000));
+                            if (remaining <= 30) {
+                                $('countdown').style.display = 'block';
+                                $('countdown').textContent = 'Next in ' + remaining + 's';
+                            }
+                            if (elapsed >= clipDurMs) {
+                                playNext();
+                            }
+                        }, 1000);
+                    }
+                });
+            })
+            .catch(function(e) {
+                $('clipTitle').textContent = 'Error: ' + e.message;
+            });
+    }
+
+    /* ── OSD ── */
+    function showOsd() {
+        $('osd').classList.add('visible');
+        clearTimeout(osdTimer);
+        osdTimer = setTimeout(function() { $('osd').classList.remove('visible'); }, 4000);
+    }
+
+    document.addEventListener('mousemove', showOsd);
+    document.addEventListener('keydown', function(e) {
+        showOsd();
+        if (e.key === 'ArrowRight' || e.key === 'Enter') {
+            if (document.activeElement === $('nextBtn')) return;
+            if (document.activeElement === $('stopBtn')) return;
+            $('mainVideo').paused ? $('mainVideo').play() : null;
+        }
+    });
+
+    $('mainVideo').addEventListener('click', showOsd);
+
+    $('nextBtn').addEventListener('click', function() { playNext(); });
+    $('stopBtn').addEventListener('click', function() {
+        clearReel();
+        var vid = $('mainVideo');
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        rr.itemId = null;
+        rr.folderId = null;
+        showPicker();
+    });
+
+    // Arrow keys to navigate OSD buttons when OSD is visible
+    $('osd').addEventListener('keydown', function(e) {
+        var btns = [$('nextBtn'), $('stopBtn')];
+        var idx = btns.indexOf(document.activeElement);
+        if (e.key === 'ArrowLeft'  && idx > 0) { btns[idx-1].focus(); e.preventDefault(); }
+        if (e.key === 'ArrowRight' && idx < btns.length-1) { btns[idx+1].focus(); e.preventDefault(); }
+        if (e.key === 'Escape') { $('osd').classList.remove('visible'); }
+    });
+
+    /* ── Screens ── */
+    function showLogin()  { $('loginScreen').style.display='flex';  $('pickerScreen').style.display='none'; $('playerScreen').style.display='none'; }
+    function showPicker() { $('loginScreen').style.display='none';  $('pickerScreen').style.display='block'; $('playerScreen').style.display='none'; loadLibraries(); }
+    function showPlayer() { $('loginScreen').style.display='none';  $('pickerScreen').style.display='none';  $('playerScreen').style.display='block'; }
+
+    /* ── Login UI ── */
+    $('loginBtn').addEventListener('click', function() {
+        var serverUrl = $('serverUrl').value.trim();
+        var username  = $('username').value.trim();
+        var password  = $('password').value;
+        if (!serverUrl || !username) { $('loginError').textContent = 'Fill in all fields.'; return; }
+        $('loginBtn').disabled = true; $('loginBtn').textContent = 'Signing in…';
+        login(serverUrl, username, password)
+            .then(showPicker)
+            .catch(function(e) { $('loginError').textContent = e.message; $('loginBtn').disabled=false; $('loginBtn').textContent='Sign In'; });
+    });
+
+    $('logoutBtn').addEventListener('click', function() {
+        clearReel(); state = {}; localStorage.removeItem(STATE_KEY); showLogin();
+    });
+
+    $('qcStartBtn').addEventListener('click', qcStart);
+    $('qcCancelBtn').addEventListener('click', qcStop);
+
+    ['serverUrl','username','password'].forEach(function(id) {
+        $(id).addEventListener('keydown', function(e) { if (e.key==='Enter') $('loginBtn').click(); });
+    });
+
+    /* ── Init ── */
+    loadState();
+    // Pre-fill server URL with the origin serving this page (can be overridden)
+    if (!state.serverUrl) {
+        $('serverUrl').value = window.location.origin;
+    } else {
+        $('serverUrl').value = state.serverUrl;
+    }
+    if (state.token && state.userId && state.serverUrl) {
+        api('/Users/' + state.userId)
+            .then(function(r) { if (r.ok) showPicker(); else { state={}; showLogin(); } })
+            .catch(function() { showLogin(); });
+    } else {
+        showLogin();
+    }
+})();
+</script>
+</body>
+</html>
