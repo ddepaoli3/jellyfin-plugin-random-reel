@@ -77,6 +77,7 @@
         .btn-secondary:hover { background: #444; }
 
         #loginError { color: #ef5350; font-size: .95em; min-height: 1.2em; }
+        .dur-btn.selected { background: #00a4dc; border-color: #00a4dc; color: #fff; }
 
         /* Quick Connect */
         #qcBox {
@@ -119,6 +120,17 @@
     <h1>🎲 Random Reel</h1>
     <p class="sub">Choose a library to start</p>
     <div id="folderList"></div>
+    <div style="margin-top:2em;max-width:650px">
+        <label style="color:#aaa;font-size:.95em;display:block;margin-bottom:.5em">Clip duration</label>
+        <div id="durationPicker" style="display:flex;gap:.6em;flex-wrap:wrap">
+            <button class="dur-btn btn btn-secondary" data-minutes="1">1 min</button>
+            <button class="dur-btn btn btn-secondary" data-minutes="2">2 min</button>
+            <button class="dur-btn btn btn-secondary" data-minutes="5">5 min</button>
+            <button class="dur-btn btn btn-secondary" data-minutes="10">10 min</button>
+            <button class="dur-btn btn btn-secondary" data-minutes="20">20 min</button>
+            <button class="dur-btn btn btn-secondary" data-minutes="0">Full video</button>
+        </div>
+    </div>
     <div style="margin-top:2em">
         <button class="btn btn-secondary" id="logoutBtn">Sign out</button>
     </div>
@@ -147,6 +159,7 @@
     var state = {};
     var rr = { folderId: null, itemId: null, durMs: 0, progressTimer: null, startedAt: 0 };
     var osdTimer = null;
+    var selectedDurationMinutes = 5; // default
 
     function $(id) { return document.getElementById(id); }
 
@@ -298,7 +311,12 @@
         $('clipTitle').textContent = 'Loading…';
         $('clipInfo').textContent  = '';
 
-        api('/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId) + '&_=' + Date.now())
+        var nextUrl = '/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId) + '&_=' + Date.now();
+        if (selectedDurationMinutes > 0) {
+            nextUrl += '&durationMinutes=' + selectedDurationMinutes;
+        }
+
+        api(nextUrl)
             .then(function(r) { if (!r.ok) throw new Error('Next: ' + r.status); return r.json(); })
             .then(function(data) {
                 var itemId    = data.itemId    || data.ItemId;
@@ -444,6 +462,19 @@
 
     $('qcStartBtn').addEventListener('click', qcStart);
     $('qcCancelBtn').addEventListener('click', qcStop);
+
+    // Duration picker
+    document.querySelectorAll('.dur-btn').forEach(function(btn) {
+        if (parseInt(btn.dataset.minutes, 10) === selectedDurationMinutes) {
+            btn.classList.add('selected');
+        }
+
+        btn.addEventListener('click', function() {
+            selectedDurationMinutes = parseInt(btn.dataset.minutes, 10);
+            document.querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+        });
+    });
 
     ['serverUrl','username','password'].forEach(function(id) {
         $(id).addEventListener('keydown', function(e) { if (e.key==='Enter') $('loginBtn').click(); });
