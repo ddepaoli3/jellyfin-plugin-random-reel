@@ -6,220 +6,174 @@
     <title>Random Reel</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #101010; color: #fff; font-family: sans-serif; min-height: 100vh; }
 
-        body {
-            background: #101010;
-            color: #fff;
-            font-family: sans-serif;
-            min-height: 100vh;
-        }
-
-        /* ── Login screen ── */
+        /* ── Login ── */
         #loginScreen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            gap: 1.5em;
-            padding: 2em;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; gap: 1.2em; padding: 2em;
         }
         #loginScreen h1 { font-size: 2em; }
         #loginScreen input {
-            width: 100%;
-            max-width: 400px;
-            padding: 0.8em 1em;
-            font-size: 1.1em;
-            background: #222;
-            border: 2px solid #444;
-            border-radius: 8px;
-            color: #fff;
-            outline: none;
+            width: 100%; max-width: 420px; padding: 0.8em 1em; font-size: 1.1em;
+            background: #222; border: 2px solid #444; border-radius: 8px; color: #fff; outline: none;
         }
         #loginScreen input:focus { border-color: #00a4dc; }
 
-        /* ── Main screen ── */
-        #mainScreen { display: none; padding: 2em; }
-
-        #mainScreen h1 {
-            font-size: 1.8em;
-            margin-bottom: 0.3em;
-            display: flex;
-            align-items: center;
-            gap: 0.4em;
-        }
-        #mainScreen .subtitle {
-            color: #aaa;
-            margin-bottom: 2em;
-            font-size: 0.95em;
-        }
-
-        /* ── Folder grid ── */
-        #folderList {
-            display: flex;
-            flex-direction: column;
-            gap: 0.8em;
-            max-width: 700px;
-        }
-
+        /* ── Library picker ── */
+        #pickerScreen { display: none; padding: 2em; }
+        #pickerScreen h1 { font-size: 1.8em; margin-bottom: 0.3em; }
+        #pickerScreen .sub { color: #aaa; margin-bottom: 1.5em; font-size: .95em; }
+        #folderList { display: flex; flex-direction: column; gap: .7em; max-width: 650px; }
         .folder-btn {
-            display: flex;
-            align-items: center;
-            gap: 1em;
-            padding: 1.1em 1.4em;
-            background: #1e1e1e;
-            border: 2px solid transparent;
-            border-radius: 10px;
-            color: #fff;
-            font-size: 1.2em;
-            cursor: pointer;
-            text-align: left;
-            width: 100%;
-            transition: border-color 0.15s, background 0.15s;
+            display: flex; align-items: center; gap: 1em; padding: 1em 1.3em;
+            background: #1e1e1e; border: 2px solid transparent; border-radius: 10px;
+            color: #fff; font-size: 1.15em; cursor: pointer; text-align: left; width: 100%;
         }
-        .folder-btn:hover,
-        .folder-btn:focus {
-            border-color: #00a4dc;
-            background: #1a2f3a;
-            outline: none;
-        }
-        .folder-btn:disabled {
-            opacity: 0.5;
-            cursor: default;
-        }
-        .folder-btn .icon { font-size: 1.5em; }
+        .folder-btn:hover, .folder-btn:focus { border-color: #00a4dc; background: #1a2f3a; outline: none; }
+        .folder-btn:disabled { opacity: .5; cursor: default; }
 
-        /* ── Status bar ── */
-        #status {
-            margin-top: 1.5em;
-            padding: 0.9em 1.2em;
-            border-radius: 8px;
-            font-size: 1em;
+        /* ── Player ── */
+        #playerScreen { display: none; position: relative; background: #000; min-height: 100vh; }
+        #mainVideo { width: 100%; height: 100vh; object-fit: contain; display: block; }
+
+        /* OSD overlay */
+        #osd {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,.85));
+            padding: 2em 2em 1.5em; display: flex; align-items: flex-end;
+            justify-content: space-between; opacity: 0; transition: opacity .3s;
+            pointer-events: none;
+        }
+        #osd.visible { opacity: 1; pointer-events: all; }
+        #nowPlaying { font-size: 1.1em; font-weight: bold; max-width: 60%; }
+        #nowPlaying .sub { font-size: .8em; font-weight: normal; color: #aaa; margin-top: .2em; }
+        #osdBtns { display: flex; gap: 1em; }
+        .osd-btn {
+            padding: .7em 1.5em; border-radius: 8px; border: 2px solid rgba(255,255,255,.5);
+            background: rgba(0,0,0,.6); color: #fff; font-size: 1em; cursor: pointer; font-weight: bold;
+        }
+        .osd-btn:focus, .osd-btn:hover { border-color: #00a4dc; outline: none; }
+
+        /* Progress bar */
+        #progressBar {
+            position: fixed; bottom: 0; left: 0; height: 4px;
+            background: #00a4dc; width: 0%; transition: width .5s linear; z-index: 10;
+        }
+
+        /* Countdown badge */
+        #countdown {
+            position: fixed; top: 1.2em; right: 1.5em;
+            background: rgba(0,0,0,.65); border: 1px solid rgba(255,255,255,.3);
+            border-radius: 20px; padding: .4em 1em; font-size: .9em; color: #aaa;
             display: none;
-            max-width: 700px;
         }
-        #status.show { display: block; }
-        #status.ok  { background: rgba(0,200,100,0.15); color: #4caf50; border: 1px solid #4caf50; }
-        #status.err { background: rgba(220,50,50,0.15);  color: #ef5350; border: 1px solid #ef5350; }
-        #status.inf { background: rgba(0,164,220,0.15);  color: #00a4dc; border: 1px solid #00a4dc; }
 
-        /* ── TV button (big) ── */
-        .btn {
-            padding: 0.9em 2em;
-            font-size: 1.1em;
-            border-radius: 8px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            font-weight: bold;
-            transition: border-color 0.15s, background 0.15s;
-        }
+        /* Generic button */
+        .btn { padding: .85em 2em; font-size: 1.05em; border-radius: 8px; border: 2px solid transparent; cursor: pointer; font-weight: bold; }
         .btn:focus { outline: none; border-color: #00a4dc; }
         .btn-primary { background: #00a4dc; color: #fff; }
-        .btn-primary:hover { background: #0090c0; }
         .btn-secondary { background: #333; color: #fff; }
         .btn-secondary:hover { background: #444; }
+
+        #loginError { color: #ef5350; font-size: .95em; min-height: 1.2em; }
     </style>
 </head>
 <body>
 
-<!-- ── Login ── -->
+<!-- Login -->
 <div id="loginScreen">
     <h1>🎲 Random Reel</h1>
-    <p style="color:#aaa">Enter your Jellyfin credentials to continue</p>
-    <input id="serverUrl" type="url" placeholder="Server URL (e.g. http://192.168.1.10:8096)" />
-    <input id="username" type="text" placeholder="Username" autocomplete="username" />
-    <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
-    <button class="btn btn-primary" id="loginBtn" style="width:100%;max-width:400px">Sign In</button>
-    <div id="loginStatus" class="btn" style="display:none;background:transparent;color:#ef5350;border:none;font-weight:normal"></div>
+    <p style="color:#aaa;text-align:center">Sign in to your Jellyfin server</p>
+    <input id="serverUrl" type="url"      placeholder="Server URL  (e.g. http://192.168.1.10:8096)" />
+    <input id="username"  type="text"     placeholder="Username" autocomplete="username" />
+    <input id="password"  type="password" placeholder="Password"  autocomplete="current-password" />
+    <button class="btn btn-primary" id="loginBtn" style="width:100%;max-width:420px">Sign In</button>
+    <p id="loginError"></p>
 </div>
 
-<!-- ── Main ── -->
-<div id="mainScreen">
+<!-- Library picker -->
+<div id="pickerScreen">
     <h1>🎲 Random Reel</h1>
-    <p class="subtitle">Choose a library to start continuous random playback</p>
-    <div id="folderList"><p style="color:#aaa">Loading…</p></div>
-    <div id="status"></div>
+    <p class="sub">Choose a library to start</p>
+    <div id="folderList"></div>
     <div style="margin-top:2em">
         <button class="btn btn-secondary" id="logoutBtn">Sign out</button>
+    </div>
+</div>
+
+<!-- Player -->
+<div id="playerScreen">
+    <video id="mainVideo" autoplay playsinline></video>
+    <div id="progressBar"></div>
+    <div id="countdown"></div>
+    <div id="osd">
+        <div id="nowPlaying">
+            <div id="clipTitle">—</div>
+            <div class="sub" id="clipInfo"></div>
+        </div>
+        <div id="osdBtns">
+            <button class="osd-btn" id="nextBtn">⏭ Next</button>
+            <button class="osd-btn" id="stopBtn">⏹ Stop</button>
+        </div>
     </div>
 </div>
 
 <script>
 (function () {
     var STATE_KEY = 'rrtvState';
-    var state = {}; // { serverUrl, token, userId, deviceId }
+    var state = {};
+    var rr = { folderId: null, itemId: null, durMs: 0, timer: null, progressTimer: null, startedAt: 0 };
+    var osdTimer = null;
 
-    /* ── Helpers ── */
     function $(id) { return document.getElementById(id); }
 
-    function setStatus(msg, type) {
-        var el = $('status');
-        el.textContent = msg;
-        el.className = 'show ' + (type || 'inf');
-    }
+    /* ── Persist ── */
+    function saveState() { try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e){} }
+    function loadState() { try { state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}'); } catch(e){ state={}; } }
 
     function deviceId() {
         var id = localStorage.getItem('rrDeviceId');
-        if (!id) {
-            id = 'rrtv-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-            localStorage.setItem('rrDeviceId', id);
-        }
+        if (!id) { id = 'rrtv-' + Math.random().toString(36).slice(2); localStorage.setItem('rrDeviceId', id); }
         return id;
     }
 
-    function authHeader() {
-        var did = deviceId();
-        var h = 'MediaBrowser Client="Random Reel TV"' +
-                ', Device="TV Browser"' +
-                ', DeviceId="' + did + '"' +
-                ', Version="1.0.0"';
-        if (state.token) h += ', Token="' + state.token + '"';
+    function authHeader(withToken) {
+        var h = 'MediaBrowser Client="Random Reel TV", Device="TV Browser", DeviceId="' + deviceId() + '", Version="1.0.0"';
+        if (withToken && state.token) h += ', Token="' + state.token + '"';
         return h;
     }
 
     function api(path, opts) {
         opts = opts || {};
-        opts.headers = Object.assign({ 'Authorization': authHeader(), 'Content-Type': 'application/json' }, opts.headers || {});
+        opts.headers = Object.assign({ 'Authorization': authHeader(true), 'Content-Type': 'application/json' }, opts.headers || {});
         return fetch(state.serverUrl + path, opts);
-    }
-
-    /* ── Persist / restore session ── */
-    function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
-    function loadState() {
-        try { state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}'); } catch (e) { state = {}; }
     }
 
     /* ── Login ── */
     function login(serverUrl, username, password) {
         state.serverUrl = serverUrl.replace(/\/$/, '');
-        var did = deviceId();
-        var authNoToken = 'MediaBrowser Client="Random Reel TV", Device="TV Browser", DeviceId="' + did + '", Version="1.0.0"';
         return fetch(state.serverUrl + '/Users/AuthenticateByName', {
             method: 'POST',
-            headers: { 'Authorization': authNoToken, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': authHeader(false), 'Content-Type': 'application/json' },
             body: JSON.stringify({ Username: username, Pw: password })
         })
-        .then(function (r) { if (!r.ok) throw new Error('Login failed (' + r.status + ')'); return r.json(); })
-        .then(function (d) {
-            state.token  = d.AccessToken;
-            state.userId = d.User.Id;
-            saveState();
-        });
+        .then(function(r) { if (!r.ok) throw new Error('Login failed (' + r.status + ')'); return r.json(); })
+        .then(function(d) { state.token = d.AccessToken; state.userId = d.User.Id; saveState(); });
     }
 
-    /* ── Load libraries ── */
+    /* ── Libraries ── */
     function loadLibraries() {
         $('folderList').innerHTML = '<p style="color:#aaa">Loading…</p>';
         Promise.all([
-            api('/Users/' + state.userId + '/Views').then(function (r) { return r.json(); }),
-            api('/Users/' + state.userId + '/Items?IncludeItemTypes=Playlist&Recursive=true').then(function (r) { return r.json(); })
-        ]).then(function (results) {
-            var views = (results[0].Items || []).filter(function (v) {
-                return ['movies', 'tvshows', 'mixed', ''].indexOf(v.CollectionType || '') !== -1;
+            api('/Users/' + state.userId + '/Views').then(function(r){ return r.json(); }),
+            api('/Users/' + state.userId + '/Items?IncludeItemTypes=Playlist&Recursive=true').then(function(r){ return r.json(); })
+        ]).then(function(res) {
+            var views = (res[0].Items || []).filter(function(v) {
+                return ['movies','tvshows','mixed',''].indexOf(v.CollectionType || '') !== -1;
             });
-            var playlists = results[1].Items || [];
-            renderFolders(views.concat(playlists));
-        }).catch(function (e) {
+            renderFolders(views.concat(res[1].Items || []));
+        }).catch(function(e) {
             $('folderList').innerHTML = '<p style="color:#ef5350">Error: ' + e.message + '</p>';
         });
     }
@@ -228,151 +182,154 @@
         var list = $('folderList');
         if (!items.length) { list.innerHTML = '<p style="color:#aaa">No libraries found.</p>'; return; }
         list.innerHTML = '';
-        items.forEach(function (item) {
+        items.forEach(function(item) {
             var btn = document.createElement('button');
             btn.className = 'folder-btn';
-            btn.innerHTML = '<span class="icon">🎬</span><span>' + item.Name + '</span>';
-            btn.addEventListener('click', function () { launch(item.Id, btn); });
+            btn.innerHTML = '<span>🎬</span><span>' + item.Name + '</span>';
+            btn.addEventListener('click', function() { startReel(item.Id); });
             list.appendChild(btn);
         });
         list.querySelector('.folder-btn').focus();
     }
 
     /* ── Playback ── */
-    var rrSession = null; // { itemId, folderId, timer }
-    var pendingCleanup = {};
-
-    function getSession() {
-        var did = deviceId();
-        return api('/Sessions?deviceId=' + encodeURIComponent(did))
-            .then(function (r) { return r.json(); })
-            .then(function (sessions) {
-                for (var i = 0; i < sessions.length; i++) {
-                    if (sessions[i].DeviceId === did) return sessions[i];
-                }
-                return sessions[0] || null;
-            });
+    function clearReel() {
+        if (rr.timer)        { clearTimeout(rr.timer);   rr.timer = null; }
+        if (rr.progressTimer){ clearInterval(rr.progressTimer); rr.progressTimer = null; }
+        $('progressBar').style.width = '0%';
+        $('countdown').style.display = 'none';
     }
 
-    function cleanupWatch(itemId) {
-        var base = '/Users/' + state.userId + '/PlayedItems/' + itemId;
-        api(base, { method: 'POST' })
-            .then(function () { return api(base, { method: 'DELETE' }); })
-            .catch(function () {});
+    function startReel(folderId) {
+        rr.folderId = folderId;
+        showPlayer();
+        playNext();
     }
 
-    function stopTimer() {
-        if (rrSession && rrSession.timer) clearTimeout(rrSession.timer);
-    }
+    function playNext() {
+        clearReel();
+        var vid = $('mainVideo');
+        vid.src = '';
+        $('clipTitle').textContent = 'Loading…';
+        $('clipInfo').textContent  = '';
 
-    function launch(folderId, btnEl) {
-        setStatus('Picking a random clip…', 'inf');
-        if (btnEl) btnEl.disabled = true;
-
-        api('/RandomReel/Next?folderId=' + encodeURIComponent(folderId))
-            .then(function (r) { if (!r.ok) throw new Error('/RandomReel/Next ' + r.status); return r.json(); })
-            .then(function (data) {
+        api('/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId))
+            .then(function(r) { if (!r.ok) throw new Error('Next: ' + r.status); return r.json(); })
+            .then(function(data) {
                 var itemId    = data.itemId    || data.ItemId;
                 var startTick = data.startPositionTicks || data.StartPositionTicks || 0;
                 var durTicks  = data.playbackDurationTicks || data.PlaybackDurationTicks || 0;
+                var name      = data.itemName  || data.ItemName || 'Unknown';
 
-                return getSession().then(function (session) {
-                    if (!session) throw new Error('No active playback session found.\nOpen Jellyfin on this device first.');
-                    var qs = 'playCommand=PlayNow' +
-                             '&itemIds=' + encodeURIComponent(itemId) +
-                             '&startPositionTicks=' + Math.floor(startTick) +
-                             '&mediaSourceId=' + encodeURIComponent(itemId);
-                    return api('/Sessions/' + session.Id + '/Playing?' + qs, { method: 'POST' })
-                        .then(function (r) { if (!r.ok) throw new Error('Sessions/Playing ' + r.status); })
-                        .then(function () {
-                            // Set up auto-advance
-                            stopTimer();
-                            if (rrSession) pendingCleanup[rrSession.itemId] = true;
-                            rrSession = { itemId: itemId, folderId: folderId, timer: null };
+                rr.itemId = itemId;
+                rr.durMs  = durTicks / 10000;
 
-                            if (durTicks > 0) {
-                                var ms = durTicks / 10000;
-                                rrSession.timer = setTimeout(function () {
-                                    if (!rrSession || rrSession.itemId !== itemId) return;
-                                    var prev = rrSession.itemId;
-                                    var next = rrSession.folderId;
-                                    pendingCleanup[prev] = true;
-                                    rrSession = null;
-                                    cleanupWatch(prev);
-                                    launch(next, null);
-                                }, ms);
-                            }
+                // Build direct stream URL with seek via StartTimeTicks
+                var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                    '?api_key=' + encodeURIComponent(state.token) +
+                    '&static=true' +
+                    '&StartTimeTicks=' + Math.floor(startTick);
 
-                            setStatus('▶ Playing — next clip in ' + Math.round(durTicks / 600000000) + ' min', 'ok');
-                        });
-                });
+                $('clipTitle').textContent = name;
+                $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
+                    (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
+
+                vid.src = streamUrl;
+                vid.play().catch(function(){});
+
+                rr.startedAt = Date.now();
+
+                if (rr.durMs > 0) {
+                    // Progress bar
+                    rr.progressTimer = setInterval(function() {
+                        var elapsed = Date.now() - rr.startedAt;
+                        var pct = Math.min(100, (elapsed / rr.durMs) * 100);
+                        $('progressBar').style.width = pct + '%';
+                        var remaining = Math.max(0, Math.round((rr.durMs - elapsed) / 1000));
+                        if (remaining <= 30) {
+                            $('countdown').style.display = 'block';
+                            $('countdown').textContent = 'Next in ' + remaining + 's';
+                        }
+                    }, 1000);
+
+                    // Auto-advance
+                    rr.timer = setTimeout(function() {
+                        playNext();
+                    }, rr.durMs);
+                }
             })
-            .catch(function (e) { setStatus('Error: ' + e.message, 'err'); })
-            .finally(function () { if (btnEl) btnEl.disabled = false; });
+            .catch(function(e) {
+                $('clipTitle').textContent = 'Error: ' + e.message;
+            });
     }
 
-    /* ── Arrow-key navigation ── */
-    document.addEventListener('keydown', function (e) {
-        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-        var btns = Array.from(document.querySelectorAll('.folder-btn:not([disabled])'));
-        if (!btns.length) return;
-        var idx = btns.indexOf(document.activeElement);
-        e.preventDefault();
-        var next = e.key === 'ArrowDown' ? btns[idx + 1] : btns[idx - 1];
-        if (next) next.focus();
+    /* ── OSD ── */
+    function showOsd() {
+        $('osd').classList.add('visible');
+        clearTimeout(osdTimer);
+        osdTimer = setTimeout(function() { $('osd').classList.remove('visible'); }, 4000);
+    }
+
+    document.addEventListener('mousemove', showOsd);
+    document.addEventListener('keydown', function(e) {
+        showOsd();
+        if (e.key === 'ArrowRight' || e.key === 'Enter') {
+            if (document.activeElement === $('nextBtn')) return;
+            if (document.activeElement === $('stopBtn')) return;
+            $('mainVideo').paused ? $('mainVideo').play() : null;
+        }
     });
 
-    /* ── UI flow ── */
-    function showMain() {
-        $('loginScreen').style.display = 'none';
-        $('mainScreen').style.display  = 'block';
-        loadLibraries();
-    }
+    $('mainVideo').addEventListener('click', showOsd);
 
-    function showLogin() {
-        $('loginScreen').style.display = 'flex';
-        $('mainScreen').style.display  = 'none';
-    }
+    $('nextBtn').addEventListener('click', function() { playNext(); });
+    $('stopBtn').addEventListener('click', function() {
+        clearReel();
+        $('mainVideo').pause();
+        $('mainVideo').src = '';
+        showPicker();
+    });
 
-    $('loginBtn').addEventListener('click', function () {
+    // Arrow keys to navigate OSD buttons when OSD is visible
+    $('osd').addEventListener('keydown', function(e) {
+        var btns = [$('nextBtn'), $('stopBtn')];
+        var idx = btns.indexOf(document.activeElement);
+        if (e.key === 'ArrowLeft'  && idx > 0) { btns[idx-1].focus(); e.preventDefault(); }
+        if (e.key === 'ArrowRight' && idx < btns.length-1) { btns[idx+1].focus(); e.preventDefault(); }
+        if (e.key === 'Escape') { $('osd').classList.remove('visible'); }
+    });
+
+    /* ── Screens ── */
+    function showLogin()  { $('loginScreen').style.display='flex';  $('pickerScreen').style.display='none'; $('playerScreen').style.display='none'; }
+    function showPicker() { $('loginScreen').style.display='none';  $('pickerScreen').style.display='block'; $('playerScreen').style.display='none'; loadLibraries(); }
+    function showPlayer() { $('loginScreen').style.display='none';  $('pickerScreen').style.display='none';  $('playerScreen').style.display='block'; }
+
+    /* ── Login UI ── */
+    $('loginBtn').addEventListener('click', function() {
         var serverUrl = $('serverUrl').value.trim();
         var username  = $('username').value.trim();
         var password  = $('password').value;
-        if (!serverUrl || !username) { $('loginStatus').textContent = 'Fill in all fields.'; $('loginStatus').style.display='block'; return; }
-        $('loginBtn').disabled = true;
-        $('loginBtn').textContent = 'Signing in…';
+        if (!serverUrl || !username) { $('loginError').textContent = 'Fill in all fields.'; return; }
+        $('loginBtn').disabled = true; $('loginBtn').textContent = 'Signing in…';
         login(serverUrl, username, password)
-            .then(showMain)
-            .catch(function (e) {
-                $('loginStatus').textContent = e.message;
-                $('loginStatus').style.display = 'block';
-                $('loginBtn').disabled = false;
-                $('loginBtn').textContent = 'Sign In';
-            });
+            .then(showPicker)
+            .catch(function(e) { $('loginError').textContent = e.message; $('loginBtn').disabled=false; $('loginBtn').textContent='Sign In'; });
     });
 
-    $('logoutBtn').addEventListener('click', function () {
-        stopTimer();
-        rrSession = null;
-        state = {};
-        localStorage.removeItem(STATE_KEY);
-        showLogin();
+    $('logoutBtn').addEventListener('click', function() {
+        clearReel(); state = {}; localStorage.removeItem(STATE_KEY); showLogin();
     });
 
-    // Allow pressing Enter on inputs to submit login
-    ['serverUrl','username','password'].forEach(function (id) {
-        $(id).addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') $('loginBtn').click();
-        });
+    ['serverUrl','username','password'].forEach(function(id) {
+        $(id).addEventListener('keydown', function(e) { if (e.key==='Enter') $('loginBtn').click(); });
     });
 
     /* ── Init ── */
     loadState();
     if (state.token && state.userId && state.serverUrl) {
-        // Verify token is still valid
         api('/Users/' + state.userId)
-            .then(function (r) { if (r.ok) showMain(); else { state = {}; showLogin(); } })
-            .catch(function () { showLogin(); });
+            .then(function(r) { if (r.ok) showPicker(); else { state={}; showLogin(); } })
+            .catch(function() { showLogin(); });
     } else {
         showLogin();
     }
