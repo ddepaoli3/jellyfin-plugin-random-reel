@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Random Reel</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #101010; color: #fff; font-family: sans-serif; min-height: 100vh; }
@@ -305,6 +306,7 @@
     function playNext() {
         clearReel();
         var vid = $('mainVideo');
+        if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
@@ -333,6 +335,9 @@
                 $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
                     (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
 
+                var useHls = (window.Hls && Hls.isSupported()) ||
+                             vid.canPlayType('application/vnd.apple.mpegurl') !== '';
+
                 // Get PlaySessionId so Jellyfin honours StartTimeTicks in the stream
                 return api('/Items/' + itemId + '/PlaybackInfo', {
                     method: 'POST',
@@ -341,7 +346,13 @@
                         StartTimeTicks: Math.floor(startTick),
                         DeviceProfile: {
                             DirectPlayProfiles: [],
-                            TranscodingProfiles: [{
+                            TranscodingProfiles: [useHls ? {
+                                Container: 'ts',
+                                Type: 'Video',
+                                AudioCodec: 'aac',
+                                VideoCodec: 'h264',
+                                Protocol: 'hls'
+                            } : {
                                 Container: 'mp4',
                                 Type: 'Video',
                                 AudioCodec: 'aac',
@@ -355,20 +366,48 @@
                 .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
                 .then(function(info) {
                     var sessionId = info.PlaySessionId;
-                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
-                        '?api_key='          + encodeURIComponent(state.token) +
-                        '&PlaySessionId='    + encodeURIComponent(sessionId) +
-                        '&StartTimeTicks='   + Math.floor(startTick) +
-                        '&AudioCodec=aac' +
-                        '&VideoCodec=h264' +
-                        '&Container=mp4' +
-                        '&_='               + Date.now();
 
-                    console.log('[RR] sessionId:', sessionId, 'startTick:', startTick);
+                    // Destroy previous hls.js instance if any
+                    if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
 
-                    vid.src = streamUrl;
-                    vid.load();
-                    vid.play().catch(function(){});
+                    if (useHls) {
+                        var streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
+                            '?api_key='          + encodeURIComponent(state.token) +
+                            '&PlaySessionId='    + encodeURIComponent(sessionId) +
+                            '&StartTimeTicks='   + Math.floor(startTick) +
+                            '&AudioCodec=aac' +
+                            '&VideoCodec=h264' +
+                            '&_='               + Date.now();
+
+                        if (window.Hls && Hls.isSupported()) {
+                            console.log('[RR] hls.js, startTick:', startTick);
+                            var hls = new Hls();
+                            vid._hls = hls;
+                            hls.loadSource(streamUrl);
+                            hls.attachMedia(vid);
+                            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                vid.play().catch(function(){});
+                            });
+                        } else {
+                            console.log('[RR] native HLS, startTick:', startTick);
+                            vid.src = streamUrl;
+                            vid.load();
+                            vid.play().catch(function(){});
+                        }
+                    } else {
+                        var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                            '?api_key='          + encodeURIComponent(state.token) +
+                            '&PlaySessionId='    + encodeURIComponent(sessionId) +
+                            '&StartTimeTicks='   + Math.floor(startTick) +
+                            '&AudioCodec=aac' +
+                            '&VideoCodec=h264' +
+                            '&Container=mp4' +
+                            '&_='               + Date.now();
+                        console.log('[RR] MP4 fallback, startTick:', startTick);
+                        vid.src = streamUrl;
+                        vid.load();
+                        vid.play().catch(function(){});
+                    }
 
                     // Snapshot durMs now so the interval closure always uses the right value
                     var clipDurMs = rr.durMs;
@@ -422,6 +461,7 @@
     $('stopBtn').addEventListener('click', function() {
         clearReel();
         var vid = $('mainVideo');
+        if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
