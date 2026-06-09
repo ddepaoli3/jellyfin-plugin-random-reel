@@ -343,6 +343,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         UserId: state.userId,
+                        DeviceId: deviceId(),
                         StartTimeTicks: Math.floor(startTick),
                         DeviceProfile: {
                             DirectPlayProfiles: [],
@@ -378,6 +379,7 @@
                             '?api_key='          + encodeURIComponent(state.token) +
                             '&PlaySessionId='    + encodeURIComponent(sessionId) +
                             '&MediaSourceId='    + encodeURIComponent(mediaSourceId) +
+                            '&DeviceId='         + encodeURIComponent(deviceId()) +
                             '&StartTimeTicks='   + Math.floor(startTick) +
                             '&AudioCodec=aac' +
                             '&VideoCodec=h264' +
