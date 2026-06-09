@@ -339,13 +339,17 @@
                     body: JSON.stringify({
                         UserId: state.userId,
                         StartTimeTicks: Math.floor(startTick),
+                        EnableDirectPlay: false,
+                        EnableDirectStream: false,
+                        EnableTranscoding: true,
                         DeviceProfile: {
                             DirectPlayProfiles: [],
                             TranscodingProfiles: [{
                                 Container: 'mp4',
                                 Type: 'Video',
                                 AudioCodec: 'aac',
-                                VideoCodec: 'h264'
+                                VideoCodec: 'h264',
+                                MaxAudioChannels: '2'
                             }],
                             CodecProfiles: [{
                                 Type: 'Video',
@@ -353,13 +357,18 @@
                                 Conditions: [{
                                     Condition: 'EqualsAny',
                                     Property: 'VideoProfile',
-                                    Value: 'baseline|main|high',
-                                    IsRequired: false
+                                    Value: 'baseline',
+                                    IsRequired: true
                                 }, {
                                     Condition: 'LessThanEqual',
                                     Property: 'VideoLevel',
                                     Value: '41',
-                                    IsRequired: false
+                                    IsRequired: true
+                                }, {
+                                    Condition: 'LessThanEqual',
+                                    Property: 'Width',
+                                    Value: '1920',
+                                    IsRequired: true
                                 }]
                             }],
                             SubtitleProfiles: []
@@ -368,18 +377,27 @@
                 })
                 .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
                 .then(function(info) {
-                    var sessionId = info.PlaySessionId;
-                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
-                        '?api_key='          + encodeURIComponent(state.token) +
-                        '&PlaySessionId='    + encodeURIComponent(sessionId) +
-                        '&StartTimeTicks='   + Math.floor(startTick) +
-                        '&AudioCodec=aac' +
-                        '&VideoCodec=h264' +
-                        '&VideoProfile=baseline' +
-                        '&Container=mp4' +
-                        '&_='               + Date.now();
+                    var source = info.MediaSources && info.MediaSources[0];
+                    if (!source) throw new Error('No media source in PlaybackInfo response');
 
-                    console.log('[RR] MP4 baseline, startTick:', startTick);
+                    var streamUrl;
+                    if (source.TranscodingUrl) {
+                        // Use the URL Jellyfin computed for us (includes all required params)
+                        streamUrl = state.serverUrl + source.TranscodingUrl;
+                    } else if (source.DirectStreamUrl) {
+                        streamUrl = state.serverUrl + source.DirectStreamUrl +
+                            '&api_key=' + encodeURIComponent(state.token);
+                    } else {
+                        // Fallback: direct play
+                        streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                            '?static=true' +
+                            '&api_key=' + encodeURIComponent(state.token) +
+                            '&MediaSourceId=' + encodeURIComponent(source.Id) +
+                            '&_=' + Date.now();
+                    }
+
+                    console.log('[RR] streamUrl type:', source.TranscodingUrl ? 'transcode' : (source.DirectStreamUrl ? 'directstream' : 'directplay'));
+                    console.log('[RR] streamUrl:', streamUrl);
 
                     vid.src = streamUrl;
                     vid.load();
