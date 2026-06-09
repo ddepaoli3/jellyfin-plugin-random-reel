@@ -365,18 +365,22 @@
                 })
                 .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
                 .then(function(info) {
-                    var sessionId = info.PlaySessionId;
+                    var sessionId    = info.PlaySessionId;
+                    var mediaSourceId = (info.MediaSources && info.MediaSources[0])
+                        ? info.MediaSources[0].Id
+                        : itemId;
 
                     // Destroy previous hls.js instance if any
                     if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
 
                     if (useHls) {
                         var streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
-                            '?api_key='       + encodeURIComponent(state.token) +
-                            '&PlaySessionId=' + encodeURIComponent(sessionId) +
+                            '?api_key='        + encodeURIComponent(state.token) +
+                            '&PlaySessionId='  + encodeURIComponent(sessionId) +
+                            '&MediaSourceId='  + encodeURIComponent(mediaSourceId) +
                             '&AudioCodec=aac' +
                             '&VideoCodec=h264' +
-                            '&_='             + Date.now();
+                            '&_='              + Date.now();
 
                         if (window.Hls && Hls.isSupported()) {
                             console.log('[RR] hls.js, startTick:', startTick);
