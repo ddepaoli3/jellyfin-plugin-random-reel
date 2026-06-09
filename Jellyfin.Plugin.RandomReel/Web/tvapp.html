@@ -224,14 +224,13 @@
                 rr.itemId = itemId;
                 rr.durMs  = durTicks / 10000;
 
-                // HLS stream with audio transcoded to AAC — compatible with all TV browsers
-                var streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
-                    '?api_key='          + encodeURIComponent(state.token) +
-                    '&StartTimeTicks='   + Math.floor(startTick) +
+                // Stream with seek + audio transcoded to AAC (video copied as-is)
+                var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                    '?api_key='        + encodeURIComponent(state.token) +
+                    '&StartTimeTicks=' + Math.floor(startTick) +
                     '&AudioCodec=aac' +
-                    '&VideoCodec=h264,hevc,av1' +
-                    '&TranscodingContainer=ts' +
-                    '&SegmentContainer=ts';
+                    '&VideoCodec=copy' +
+                    '&Container=mp4';
 
                 $('clipTitle').textContent = name;
                 $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
