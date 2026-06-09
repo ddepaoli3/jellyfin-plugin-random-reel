@@ -213,7 +213,10 @@
         $('clipTitle').textContent = 'Loading…';
         $('clipInfo').textContent  = '';
 
-        api('/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId))
+        var nextUrl = '/RandomReel/Next?folderId=' + encodeURIComponent(rr.folderId) +
+            '&_=' + Date.now() + // cache-bust
+            (rr.itemId ? '&excludeId=' + encodeURIComponent(rr.itemId) : '');
+        api(nextUrl)
             .then(function(r) { if (!r.ok) throw new Error('Next: ' + r.status); return r.json(); })
             .then(function(data) {
                 var itemId    = data.itemId    || data.ItemId;
