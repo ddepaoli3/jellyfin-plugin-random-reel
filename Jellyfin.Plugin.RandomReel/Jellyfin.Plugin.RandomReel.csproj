@@ -31,14 +31,8 @@
   <ItemGroup>
     <None Remove="Configuration\configPage.html" />
     <EmbeddedResource Include="Configuration\configPage.html" />
-    <None Remove="Configuration\mainPage.html" />
-    <EmbeddedResource Include="Configuration\mainPage.html" />
-    <None Remove="Web\inject.js" />
-    <EmbeddedResource Include="Web\inject.js" />
     <None Remove="Web\tvapp.html" />
     <EmbeddedResource Include="Web\tvapp.html" />
-    <None Remove="Web\logo.png" />
-    <EmbeddedResource Include="Web\logo.png" />
   </ItemGroup>
 
 </Project>

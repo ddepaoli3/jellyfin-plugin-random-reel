@@ -49,6 +49,8 @@ public class ShuffleController : ControllerBase
     /// <param name="sessionId">Opaque string that identifies the current shuffle session.
     /// Pass the same value across calls to maintain the played-items pool.
     /// Omit or change it to start fresh.</param>
+    /// <param name="durationMinutes">Override the clip duration in minutes.
+    /// When provided and greater than zero, takes precedence over the plugin configuration value.</param>
     /// <returns>The item to play and the start position.</returns>
     [HttpGet("Next")]
     [Authorize]
@@ -57,7 +59,8 @@ public class ShuffleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<ShuffleNextResponse> GetNext(
         [FromQuery][Required] Guid folderId,
-        [FromQuery] string? sessionId = null)
+        [FromQuery] string? sessionId = null,
+        [FromQuery] int? durationMinutes = null)
     {
         var config = Plugin.Instance?.Configuration;
         if (config is null)
@@ -121,7 +124,10 @@ public class ShuffleController : ControllerBase
 
         var totalTicks = chosen.RunTimeTicks!.Value;
         var exclusionTicks = config.EdgeExclusionMinutes * TicksPerMinute;
-        var playbackTicks = config.PlaybackDurationMinutes * TicksPerMinute;
+        var effectiveDurationMinutes = (durationMinutes.HasValue && durationMinutes.Value > 0)
+            ? durationMinutes.Value
+            : config.PlaybackDurationMinutes;
+        var playbackTicks = effectiveDurationMinutes * TicksPerMinute;
 
         var windowStart = exclusionTicks;
         var windowEnd = totalTicks - exclusionTicks - playbackTicks;
