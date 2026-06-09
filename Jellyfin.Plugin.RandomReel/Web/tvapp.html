@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Random Reel</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #101010; color: #fff; font-family: sans-serif; min-height: 100vh; }
@@ -305,6 +306,7 @@
     function playNext() {
         clearReel();
         var vid = $('mainVideo');
+        if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
@@ -342,10 +344,11 @@
                         DeviceProfile: {
                             DirectPlayProfiles: [],
                             TranscodingProfiles: [{
-                                Container: 'mp4',
+                                Container: 'ts',
                                 Type: 'Video',
                                 AudioCodec: 'aac',
-                                VideoCodec: 'h264'
+                                VideoCodec: 'h264',
+                                Protocol: 'hls'
                             }],
                             CodecProfiles: [],
                             SubtitleProfiles: []
@@ -355,20 +358,36 @@
                 .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
                 .then(function(info) {
                     var sessionId = info.PlaySessionId;
-                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
                         '?api_key='          + encodeURIComponent(state.token) +
                         '&PlaySessionId='    + encodeURIComponent(sessionId) +
                         '&StartTimeTicks='   + Math.floor(startTick) +
                         '&AudioCodec=aac' +
                         '&VideoCodec=h264' +
-                        '&Container=mp4' +
                         '&_='               + Date.now();
 
-                    console.log('[RR] sessionId:', sessionId, 'startTick:', startTick);
+                    console.log('[RR] HLS sessionId:', sessionId, 'startTick:', startTick);
 
-                    vid.src = streamUrl;
-                    vid.load();
-                    vid.play().catch(function(){});
+                    // Destroy previous hls.js instance if any
+                    if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
+
+                    if (window.Hls && Hls.isSupported()) {
+                        // Use hls.js (Chrome, Firefox, Android TV browser)
+                        var hls = new Hls();
+                        vid._hls = hls;
+                        hls.loadSource(streamUrl);
+                        hls.attachMedia(vid);
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            vid.play().catch(function(){});
+                        });
+                    } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Native HLS (LG WebOS, Safari)
+                        vid.src = streamUrl;
+                        vid.load();
+                        vid.play().catch(function(){});
+                    } else {
+                        throw new Error('HLS not supported on this browser');
+                    }
 
                     // Snapshot durMs now so the interval closure always uses the right value
                     var clipDurMs = rr.durMs;
@@ -422,6 +441,7 @@
     $('stopBtn').addEventListener('click', function() {
         clearReel();
         var vid = $('mainVideo');
+        if (vid._hls) { vid._hls.destroy(); vid._hls = null; }
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
