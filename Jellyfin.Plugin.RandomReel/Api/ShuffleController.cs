@@ -49,7 +49,6 @@ public class ShuffleController : ControllerBase
     /// <param name="sessionId">Opaque string that identifies the current shuffle session.
     /// Pass the same value across calls to maintain the played-items pool.
     /// Omit or change it to start fresh.</param>
-    /// <param name="excludeId">Optional item ID to exclude from the next pick (e.g. currently playing item).</param>
     /// <returns>The item to play and the start position.</returns>
     [HttpGet("Next")]
     [Authorize]
@@ -58,8 +57,7 @@ public class ShuffleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<ShuffleNextResponse> GetNext(
         [FromQuery][Required] Guid folderId,
-        [FromQuery] string? sessionId = null,
-        [FromQuery] Guid? excludeId = null)
+        [FromQuery] string? sessionId = null)
     {
         var config = Plugin.Instance?.Configuration;
         if (config is null)
@@ -96,24 +94,18 @@ public class ShuffleController : ControllerBase
             : SessionPlayed.GetOrAdd(sessionKey, _ => new HashSet<Guid>());
 
         var pool = allItems
-            .Where(i => (config.AllowRepeatsInSession || !played.Contains(i.Id))
-                        && i.Id != excludeId)
+            .Where(i => config.AllowRepeatsInSession || !played.Contains(i.Id))
             .ToList();
 
         if (pool.Count == 0)
         {
-            // Pool exhausted (or only excluded item left) — reset and pick from all except excluded.
+            // Pool exhausted — reset and start over.
             lock (played)
             {
                 played.Clear();
             }
 
-            pool = allItems.Where(i => i.Id != excludeId).ToList();
-            if (pool.Count == 0)
-            {
-                pool = allItems; // fallback if only 1 item total
-            }
-
+            pool = allItems;
             _logger.LogInformation("Shuffle pool exhausted for session {Session}, restarting.", sessionKey);
         }
 
