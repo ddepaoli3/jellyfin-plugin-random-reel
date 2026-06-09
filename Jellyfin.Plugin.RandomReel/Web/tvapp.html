@@ -209,7 +209,9 @@
     function playNext() {
         clearReel();
         var vid = $('mainVideo');
-        vid.src = '';
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
         $('clipTitle').textContent = 'Loading…';
         $('clipInfo').textContent  = '';
 
@@ -221,10 +223,11 @@
                 var durTicks  = data.playbackDurationTicks || data.PlaybackDurationTicks || 0;
                 var name      = data.itemName  || data.ItemName || 'Unknown';
 
+                console.log('[RR] Next clip:', itemId, 'startTick:', startTick, 'dur:', durTicks);
+
                 rr.itemId = itemId;
                 rr.durMs  = durTicks / 10000;
 
-                // Stream with seek + audio transcoded to AAC (video copied as-is)
                 var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
                     '?api_key='        + encodeURIComponent(state.token) +
                     '&StartTimeTicks=' + Math.floor(startTick) +
@@ -233,11 +236,14 @@
                     '&Container=mp4' +
                     '&_='             + Date.now();
 
+                console.log('[RR] Stream URL:', streamUrl);
+
                 $('clipTitle').textContent = name;
                 $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
                     (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
 
                 vid.src = streamUrl;
+                vid.load();
                 vid.play().catch(function(){});
 
                 rr.startedAt = Date.now();
@@ -288,8 +294,12 @@
     $('nextBtn').addEventListener('click', function() { playNext(); });
     $('stopBtn').addEventListener('click', function() {
         clearReel();
-        $('mainVideo').pause();
-        $('mainVideo').src = '';
+        var vid = $('mainVideo');
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        rr.itemId = null;
+        rr.folderId = null;
         showPicker();
     });
 
