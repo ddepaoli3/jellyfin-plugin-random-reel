@@ -95,71 +95,22 @@
                 el.className = 'rr-status visible ' + (type || '');
             }
 
-            function authHeaders() {
-                var token, deviceId, deviceName, clientName, version;
-                try {
-                    token      = ApiClient.accessToken();
-                    deviceId   = ApiClient.deviceId();
-                    deviceName = ApiClient.deviceName();
-                    clientName = ApiClient.appName();
-                    version    = ApiClient.appVersion();
-                } catch (e) { /* ignore */ }
-                var auth = 'MediaBrowser Client="' + (clientName || 'Jellyfin Web') + '"' +
-                    ', Device="' + (deviceName || 'Browser') + '"' +
-                    ', DeviceId="' + (deviceId || '') + '"' +
-                    ', Version="' + (version || '10.11.0') + '"' +
-                    (token ? ', Token="' + token + '"' : '');
-                return { 'Authorization': auth, 'Content-Type': 'application/json' };
-            }
-
-            function getMySession(hdrs) {
-                var deviceId;
-                try { deviceId = ApiClient.deviceId(); } catch (e) { /* ignore */ }
-                return fetch('/Sessions' + (deviceId ? '?deviceId=' + encodeURIComponent(deviceId) : ''), { headers: hdrs })
-                    .then(function (r) { return r.json(); })
-                    .then(function (sessions) {
-                        for (var i = 0; i < sessions.length; i++) {
-                            if (sessions[i].DeviceId === deviceId) return sessions[i];
-                        }
-                        return sessions[0] || null;
-                    });
-            }
-
             function launch(folderId, btnEl) {
-                var hdrs = authHeaders();
-                if (btnEl) { btnEl.disabled = true; btnEl.textContent = '…'; }
+                if (btnEl) { btnEl.disabled = true; }
                 setStatus('Starting Random Reel…', '');
 
-                fetch('/RandomReel/Next?folderId=' + encodeURIComponent(folderId), { headers: hdrs })
-                    .then(function (r) {
-                        if (!r.ok) throw new Error('RandomReel/Next ' + r.status);
-                        return r.json();
-                    })
-                    .then(function (data) {
-                        return getMySession(hdrs).then(function (session) {
-                            if (!session) throw new Error('No active session');
-                            var qs = 'playCommand=PlayNow' +
-                                '&itemIds=' + encodeURIComponent(data.itemId || data.ItemId) +
-                                '&startPositionTicks=' + Math.floor(data.startPositionTicks || data.StartPositionTicks) +
-                                '&mediaSourceId=' + encodeURIComponent(data.itemId || data.ItemId);
-                            return fetch('/Sessions/' + session.Id + '/Playing?' + qs, { method: 'POST', headers: hdrs });
-                        });
-                    })
-                    .then(function (r) {
-                        if (!r.ok) throw new Error('Sessions/Playing ' + r.status);
-                        setStatus('Playback started!', 'ok');
-                        if (btnEl) {
-                            btnEl.disabled = false;
-                            btnEl.innerHTML = '<span class="material-icons">casino</span><span>' + btnEl.dataset.name + '</span>';
-                        }
-                    })
-                    .catch(function (err) {
-                        setStatus('Error: ' + err.message, 'err');
-                        if (btnEl) {
-                            btnEl.disabled = false;
-                            btnEl.innerHTML = '<span class="material-icons">casino</span><span>' + btnEl.dataset.name + '</span>';
-                        }
-                    });
+                // Reuse inject.js logic (duration timer, auto-advance, watch history cleanup)
+                if (window.RandomReel && window.RandomReel.launch) {
+                    window.RandomReel.launch(folderId);
+                    setStatus('Playback started!', 'ok');
+                    if (btnEl) {
+                        btnEl.disabled = false;
+                        btnEl.innerHTML = '<span class="material-icons">casino</span><span>' + btnEl.dataset.name + '</span>';
+                    }
+                } else {
+                    setStatus('Error: inject.js not loaded. Check plugin installation.', 'err');
+                    if (btnEl) { btnEl.disabled = false; }
+                }
             }
 
             function renderFolders(items) {

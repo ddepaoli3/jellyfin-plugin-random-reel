@@ -409,4 +409,7 @@
             })
             .catch(function (err) { console.error('[RandomReel] Error:', err); });
     }
+
+    // Expose globally so the sidebar main page can reuse the same logic
+    window.RandomReel = { launch: launchRandomReel };
 })();
