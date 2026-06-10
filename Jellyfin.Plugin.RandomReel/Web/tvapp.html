@@ -77,10 +77,10 @@
 
         /* Countdown badge */
         #countdown {
-            position: fixed; top: 1.2em; right: 1.5em;
+            position: fixed; bottom: 5.5em; right: 1.5em;
             background: rgba(0,0,0,.65); border: 1px solid rgba(255,255,255,.3);
             border-radius: 20px; padding: .4em 1em; font-size: .9em; color: #aaa;
-            display: none;
+            display: none; z-index: 30;
         }
 
         /* Generic button */
@@ -177,7 +177,7 @@
     var state = {};
     var rr = { folderId: null, itemId: null, durMs: 0, progressTimer: null, startedAt: 0 };
     var osdTimer = null;
-    var selectedDurationMinutes = 5; // default
+    var selectedDurationMinutes = parseInt(localStorage.getItem('rrDuration') || '5', 10);
     var showProgressBar = localStorage.getItem('rrShowProgress') !== 'false'; // default: true
 
     function $(id) { return document.getElementById(id); }
@@ -527,6 +527,7 @@
 
         btn.addEventListener('click', function() {
             selectedDurationMinutes = parseInt(btn.dataset.minutes, 10);
+            localStorage.setItem('rrDuration', selectedDurationMinutes);
             document.querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('selected'); });
             btn.classList.add('selected');
         });
