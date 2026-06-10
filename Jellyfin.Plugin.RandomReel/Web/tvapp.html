@@ -64,10 +64,15 @@
         }
         .osd-btn:focus, .osd-btn:hover { border-color: #00a4dc; outline: none; }
 
-        /* Progress bar */
+        /* Progress bar track */
+        #progressTrack {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 8px;
+            background: rgba(255,255,255,.2); z-index: 20;
+        }
+        /* Progress bar fill */
         #progressBar {
-            position: fixed; bottom: 0; left: 0; height: 4px;
-            background: #00a4dc; width: 0%; transition: width .5s linear; z-index: 10;
+            height: 8px; background: #00a4dc;
+            width: 0%; transition: width .5s linear;
         }
 
         /* Countdown badge */
@@ -148,7 +153,7 @@
 <!-- Player -->
 <div id="playerScreen">
     <video id="mainVideo" autoplay playsinline></video>
-    <div id="progressBar"></div>
+    <div id="progressTrack"><div id="progressBar"></div></div>
     <div id="countdown"></div>
     <div id="osd">
         <div id="nowPlaying">
@@ -363,14 +368,6 @@
                 $('clipInfo').textContent  = 'Starting at ' + Math.round(startTick / 600000000) + ' min' +
                     (rr.durMs > 0 ? ' · clip: ' + Math.round(rr.durMs / 60000) + ' min' : '');
 
-                // Native HLS: LG WebOS, Safari. MP4: Chrome, Firefox.
-                var useNativeHls = vid.canPlayType('application/vnd.apple.mpegurl') !== '';
-                console.log('[RR] useNativeHls:', useNativeHls, 'startTick:', startTick);
-
-                var transcodingProfile = useNativeHls
-                    ? { Container: 'ts', Type: 'Video', AudioCodec: 'aac', VideoCodec: 'h264', Protocol: 'hls' }
-                    : { Container: 'mp4', Type: 'Video', AudioCodec: 'aac', VideoCodec: 'h264' };
-
                 // Get PlaySessionId so Jellyfin honours StartTimeTicks in the stream
                 return api('/Items/' + itemId + '/PlaybackInfo', {
                     method: 'POST',
@@ -382,7 +379,12 @@
                         EnableTranscoding: true,
                         DeviceProfile: {
                             DirectPlayProfiles: [],
-                            TranscodingProfiles: [transcodingProfile],
+                            TranscodingProfiles: [{
+                                Container: 'mp4',
+                                Type: 'Video',
+                                AudioCodec: 'aac',
+                                VideoCodec: 'h264'
+                            }],
                             CodecProfiles: [],
                             SubtitleProfiles: []
                         }
@@ -390,32 +392,16 @@
                 })
                 .then(function(r) { if (!r.ok) throw new Error('PlaybackInfo ' + r.status); return r.json(); })
                 .then(function(info) {
-                    var source = info.MediaSources && info.MediaSources[0];
-                    if (!source) throw new Error('No media source in PlaybackInfo response');
+                    var streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
+                        '?api_key='        + encodeURIComponent(state.token) +
+                        '&PlaySessionId='  + encodeURIComponent(info.PlaySessionId) +
+                        '&StartTimeTicks=' + Math.floor(startTick) +
+                        '&AudioCodec=aac' +
+                        '&VideoCodec=h264' +
+                        '&Container=mp4' +
+                        '&_='             + Date.now();
 
-                    var streamUrl;
-                    if (useNativeHls) {
-                        var sessionId = info.PlaySessionId;
-                        streamUrl = state.serverUrl + '/Videos/' + itemId + '/master.m3u8' +
-                            '?api_key='         + encodeURIComponent(state.token) +
-                            '&PlaySessionId='   + encodeURIComponent(sessionId) +
-                            '&MediaSourceId='   + encodeURIComponent(source.Id) +
-                            '&DeviceId='        + encodeURIComponent(deviceId()) +
-                            '&StartTimeTicks='  + Math.floor(startTick) +
-                            '&VideoCodec=h264' +
-                            '&AudioCodec=aac';
-                    } else {
-                        streamUrl = state.serverUrl + '/Videos/' + itemId + '/stream' +
-                            '?api_key='         + encodeURIComponent(state.token) +
-                            '&PlaySessionId='   + encodeURIComponent(info.PlaySessionId) +
-                            '&StartTimeTicks='  + Math.floor(startTick) +
-                            '&AudioCodec=aac' +
-                            '&VideoCodec=h264' +
-                            '&Container=mp4' +
-                            '&_='              + Date.now();
-                    }
-
-                    console.log('[RR] streamUrl:', streamUrl);
+                    console.log('[RR] startTick:', startTick, 'streamUrl:', streamUrl);
 
                     vid.src = streamUrl;
                     vid.load();
