@@ -145,6 +145,10 @@
             <button class="dur-btn btn btn-secondary" data-minutes="0">Full video</button>
         </div>
     </div>
+    <div style="margin-top:2em;max-width:650px">
+        <label style="color:#aaa;font-size:.95em;display:block;margin-bottom:.5em">Progress bar</label>
+        <button class="btn btn-secondary" id="progressToggle">Show</button>
+    </div>
     <div style="margin-top:2em">
         <button class="btn btn-secondary" id="logoutBtn">Sign out</button>
     </div>
@@ -174,6 +178,7 @@
     var rr = { folderId: null, itemId: null, durMs: 0, progressTimer: null, startedAt: 0 };
     var osdTimer = null;
     var selectedDurationMinutes = 5; // default
+    var showProgressBar = localStorage.getItem('rrShowProgress') !== 'false'; // default: true
 
     function $(id) { return document.getElementById(id); }
 
@@ -496,6 +501,20 @@
     $('logoutBtn').addEventListener('click', function() {
         clearReel(); state = {}; localStorage.removeItem(STATE_KEY); showLogin();
     });
+
+    function applyProgressBar() {
+        $('progressTrack').style.display = showProgressBar ? '' : 'none';
+        $('progressToggle').textContent  = showProgressBar ? 'Show' : 'Hide';
+        $('progressToggle').classList.toggle('selected', showProgressBar);
+    }
+
+    $('progressToggle').addEventListener('click', function() {
+        showProgressBar = !showProgressBar;
+        localStorage.setItem('rrShowProgress', showProgressBar);
+        applyProgressBar();
+    });
+
+    applyProgressBar();
 
     $('qcStartBtn').addEventListener('click', qcStart);
     $('qcCancelBtn').addEventListener('click', qcStop);
