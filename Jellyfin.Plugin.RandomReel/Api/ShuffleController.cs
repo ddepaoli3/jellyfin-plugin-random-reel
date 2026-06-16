@@ -86,6 +86,17 @@ public class ShuffleController : ControllerBase
             .Where(i => i.RunTimeTicks.HasValue && i.RunTimeTicks.Value > 0)
             .ToList();
 
+        // Playlists store items as LinkedChildren rather than direct children —
+        // fall back to resolving them if the standard query returned nothing.
+        if (allItems.Count == 0 && folder is MediaBrowser.Controller.Entities.Folder folderItem
+            && folderItem.LinkedChildren.Length > 0)
+        {
+            allItems = folderItem.LinkedChildren
+                .Select(lc => _libraryManager.GetItemById(lc.ItemId ?? Guid.Empty))
+                .Where(i => i is not null && i.RunTimeTicks.HasValue && i.RunTimeTicks.Value > 0)
+                .ToList()!;
+        }
+
         if (allItems.Count == 0)
         {
             return NotFound("No playable video items found in the specified folder.");
